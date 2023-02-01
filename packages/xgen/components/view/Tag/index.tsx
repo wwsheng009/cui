@@ -10,6 +10,7 @@ import Model from './model'
 import type { Component } from '@/types'
 import type { TagProps } from 'antd'
 import type { Remote } from '@/types'
+import { find } from 'lodash-es'
 
 export interface IProps extends Remote.IProps, TagProps, Component.PropsViewComponent {
 	bind?: string
@@ -51,14 +52,14 @@ const Index = (props: IProps) => {
 		x.remote.init()
 	}, [])
 
-	if (typeof props.__value === 'string') {
-		return (
-			<CommonTag
-				pure={props.pure}
-				item={x.item || { label: props.__value, color: props.color, textColor: props.textColor }}
-			></CommonTag>
-		)
-	}
+	// if (typeof props.__value === 'string') {
+	// 	return (
+	// 		<CommonTag
+	// 			pure={props.pure}
+	// 			item={x.item || { label: props.__value, color: props.color, textColor: props.textColor }}
+	// 		></CommonTag>
+	// 	)
+	// }
 
 	if (Array.isArray(props.__value) && props.__value.length) {
 		return (
@@ -76,7 +77,35 @@ const Index = (props: IProps) => {
 			</div>
 		)
 	}
-
+	//如果是单个值，优先在远程选项里搜索label
+	if (x.remote.options.length){
+		return (
+			<CommonTag
+				pure={props.pure}
+				item={x.find(props.__value)}
+			></CommonTag>
+		)
+	}
+	function findx(v?: any){
+		return find(x.props.options, (it) => it.value === (v ?? props.__value))
+	}
+	//在本地选项里搜索label
+	if (x.props.options?.length){
+		return (
+			<CommonTag
+				pure={props.pure}
+				item={findx(props.__value)}
+			></CommonTag>
+		)
+	}
+	if (typeof props.__value === 'string') {
+		return (
+			<CommonTag
+				pure={props.pure}
+				item={x.item || { label: props.__value, color: props.color, textColor: props.textColor }}
+			></CommonTag>
+		)
+	}
 	return <span>-</span>
 }
 
