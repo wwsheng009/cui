@@ -18,6 +18,8 @@
             "dev": "max dev",
             "local": "max preview --port 8000",
             "build": "pnpm run build:theme && max build && pnpm run build:after",
+            "setup:before": "tsx --tsconfig ./build/tsconfig.json ./build/setup/before.ts",
+            "setup:after": "tsx --tsconfig ./build/tsconfig.json ./build/setup/after.ts",
             "build:theme": "tsx ./build/theme.ts",
             "build:after": "tsx ./build/after.ts"
       },
@@ -26,7 +28,7 @@
             "@ant-design/icons": "^4.8.0",
             "@editorjs/editorjs": "^2.26.4",
             "@matrixage/atom.css": "^2.0.1",
-            "@umijs/max": "^4.0.47",
+            "@umijs/max": "4.0.42",
             "@yaoapp/actionflow": "workspace:*",
             "@yaoapp/editorjs_plugins": "workspace:*",
             "@yaoapp/emittery": "workspace:*",
