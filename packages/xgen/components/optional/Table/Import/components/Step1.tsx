@@ -27,7 +27,8 @@ const Index = (props: IPropsStep1) => {
 					multiple: false,
 					maxCount: 1,
 					desc: '拖入或点击上传 Excel、CSV 文件',
-					one_file: true
+					one_file: true,
+					api: "/api/storage/upload"
 				}}
 			></X>
 		</Form>
