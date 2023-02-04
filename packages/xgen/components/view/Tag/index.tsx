@@ -68,17 +68,18 @@ const Index = (props: IProps) => {
 					return (
 						<CommonTag
 							pure={props.pure}
-							item={x.find(item.value || item)}
+							item={x.find(item.value || item) || { label: item.value || item, color: props.color, textColor: props.textColor }}
 							margin
 							key={index}
 						></CommonTag>
 					)
-				})}
-			</div>
+				})
+				}
+			</div >
 		)
 	}
 	//如果是单个值，优先在远程选项里搜索label
-	if (x.remote.options.length){
+	if (x.remote.options.length) {
 		return (
 			<CommonTag
 				pure={props.pure}
@@ -86,11 +87,11 @@ const Index = (props: IProps) => {
 			></CommonTag>
 		)
 	}
-	function findx(v?: any){
+	function findx(v?: any) {
 		return find(x.props.options, (it) => it.value === (v ?? props.__value))
 	}
 	//在本地选项里搜索label
-	if (x.props.options?.length){
+	if (x.props.options?.length) {
 		return (
 			<CommonTag
 				pure={props.pure}
