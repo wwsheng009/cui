@@ -2,8 +2,8 @@ import React from 'react'
 import ReactDom from 'react-dom'
 import ReactDomClient from 'react-dom/client'
 import JsxRuntime from 'react/jsx-runtime'
-import Antd from 'antd'//为了方便导入所有的控件
-import Ahooks from 'ahooks'
+import * as Antd from 'antd'//为了方便导入所有的控件
+import * as Ahooks from 'ahooks'
 
 System.set('app:react', { default: React, __useDefault: true })
 System.set('app:react/jsx-runtime', { ...JsxRuntime })
