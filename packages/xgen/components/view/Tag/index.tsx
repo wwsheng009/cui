@@ -78,24 +78,12 @@ const Index = (props: IProps) => {
 			</div >
 		)
 	}
-	//如果是单个值，优先在远程选项里搜索label
+	//如果是单个值，也可以选项里搜索label
 	if (x.remote.options.length) {
 		return (
 			<CommonTag
 				pure={props.pure}
 				item={x.find(props.__value)}
-			></CommonTag>
-		)
-	}
-	function findx(v?: any) {
-		return find(x.props.options, (it) => it.value === (v ?? props.__value))
-	}
-	//在本地选项里搜索label
-	if (x.props.options?.length) {
-		return (
-			<CommonTag
-				pure={props.pure}
-				item={findx(props.__value)}
 			></CommonTag>
 		)
 	}
