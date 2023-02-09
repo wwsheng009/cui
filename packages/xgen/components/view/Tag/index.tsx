@@ -83,7 +83,7 @@ const Index = (props: IProps) => {
 		return (
 			<CommonTag
 				pure={props.pure}
-				item={x.find(props.__value)}
+				item={x.find(props.__value) || { label: props.__value, color: props.color, textColor: props.textColor }}
 			></CommonTag>
 		)
 	}
