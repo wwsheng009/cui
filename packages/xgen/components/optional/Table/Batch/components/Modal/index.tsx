@@ -38,13 +38,13 @@ const Index = (props: IProps) => {
 
 		window.$app.Event.emit(`${namespace}/batchUpdate`, v)
 
-		setBatchActive(false)
+		// setBatchActive(false)
 	}
 
 	const onDelete = () => {
 		window.$app.Event.emit(`${namespace}/batchDelete`)
 
-		setBatchActive(false)
+		// setBatchActive(false)
 	}
 
 	const Footer = (
@@ -79,11 +79,11 @@ const Index = (props: IProps) => {
 		<Modal
 			wrapClassName={styles.modal_batch}
 			open={visible_modal}
-                  title='批量编辑'
-                  onCancel={() => setVisibleModal(false)}
+			title='批量编辑'
+			onCancel={() => setVisibleModal(false)}
 			footer={Footer}
-                  centered
-                  destroyOnClose
+			centered
+			destroyOnClose
 		>
 			<div className='select_wrap w_100 border_box flex flex_wrap'>
 				{options.map((item, index) => (
