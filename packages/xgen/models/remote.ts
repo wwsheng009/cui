@@ -45,7 +45,8 @@ export default class Index {
 
 		const params = {
 			...search.params,
-			[search.key]: v
+			// [search.key]: v
+			[search?.params?.key]: v
 		}
 
 		const { res, err } = await this.service.searchOptions<Component.Params, Array<any>>(search.api, params)
