@@ -127,8 +127,10 @@ export default class Model {
 		this.id = Number(id)
 		this.type = form!.type
 
+		if (form?.data) {
+			this.id = 0 //参考创建操作
+		}
 		this.getSetting()
-
 		if (form?.data) {
 			this.data = form.data
 		} else {
