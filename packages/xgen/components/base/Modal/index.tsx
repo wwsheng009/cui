@@ -48,7 +48,7 @@ const Index = (props: IProps) => {
 						parentNamespace: namespace,
 						model: config.Form.model,
 						id,
-						form: { type: config.Form.type },
+						form: { type: config.Form.type, data: config.Form.data },
 						onBack
 					}}
 				></X>

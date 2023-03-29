@@ -129,7 +129,11 @@ export default class Model {
 
 		this.getSetting()
 
-		if (Number(id) !== 0) this.find()
+		if (form?.data) {
+			this.data = form.data
+		} else {
+			if (Number(id) !== 0) this.find()
+		}
 
 		this.on(onBack)
 	}

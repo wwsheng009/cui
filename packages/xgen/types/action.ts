@@ -7,6 +7,7 @@ export declare namespace Action {
 		Form?: {
 			type: 'view' | 'edit'
 			model: string
+			data: { [key: string]: any }
 		}
 		Page?: {
 			type: 'chart'
