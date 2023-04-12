@@ -14,17 +14,20 @@
             "packages/*"
       ],
       "scripts": {
-            "postinstall": "max setup",
             "dev": "max dev",
             "local": "max preview --port 8000",
-            "build": "pnpm run build:theme && max build && pnpm run build:after",
+            "build": "max setup && pnpm run build:theme && max build && pnpm run build:after",
             "build:theme": "tsx ./build/theme.ts",
             "build:after": "tsx ./build/after.ts"
       },
       "dependencies": {
             "@abraham/reflection": "^0.11.0",
             "@ant-design/icons": "^4.8.0",
+            "@antv/x6": "^2.9.4",
+            "@antv/x6-plugin-scroller": "^2.0.8",
+            "@antv/x6-react-shape": "^2.1.1",
             "@editorjs/editorjs": "^2.26.4",
+            "@emotion/react": "^11.10.6",
             "@matrixage/atom.css": "^2.0.1",
             "@mdx-js/mdx": "^2.3.0",
             "@mdx-js/react": "^2.3.0",
@@ -37,9 +40,11 @@
             "antd": "4.24.3",
             "await-to-js": "^3.0.0",
             "axios": "^0.27.2",
+            "classix": "^2.1.24",
             "clsx": "^1.2.1",
             "echarts": "^5.4.1",
-            "fast-equals": "^4.0.3",
+            "emittery": "^1.0.1",
+            "fast-equals": "^5.0.1",
             "framer-motion": "^7.10.2",
             "gantt-task-react": "^0.3.9",
             "lodash-es": "^4.17.21",
@@ -65,6 +70,7 @@
             "sortablejs": "^1.15.0",
             "systemjs": "^6.13.0",
             "tslib": "^2.4.1",
+            "tss-react": "^4.8.2",
             "tsyringe": "^4.7.0",
             "url-pattern": "^1.0.3"
       },
