@@ -65,12 +65,12 @@ export interface IPropsMenu {
 }
 
 export interface IPropsNeo {
-	avatar: GlobalModel['avatar']
-	chat_messages: GlobalModel['chat_messages']
+	stack: string
+	api: string
 }
 
 export interface IPropsNeoChatItem {
-	avatar: GlobalModel['avatar']
+	context: App.Context
 	chat_info: App.ChatInfo
 	callback: () => void
 }

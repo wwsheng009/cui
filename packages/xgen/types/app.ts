@@ -1,10 +1,28 @@
-export declare namespace App {
-      type Theme = 'light' | 'dark'
+import type { Action } from '@/types'
 
-	interface ChatInfo {
+export declare namespace App {
+	type Theme = 'light' | 'dark'
+
+	type ChatAI = {
 		is_neo: boolean
 		text: string
-		actions?: []
+		done: boolean
+		confirm?: boolean
+		actions?: Array<Action.ActionParams>
+	}
+
+	type ChatHuman = {
+		is_neo: boolean
+		text: string
+		context?: { stack: string; pathname: string }
+	}
+
+	type ChatInfo = ChatHuman | ChatAI
+
+	interface Context {
+		namespace: string
+		primary: string
+		data_item: any
 	}
 
 	type Role = {
@@ -62,6 +80,8 @@ export declare namespace App {
 		optional?: {
 			/** remote api cache, default is true */
 			remoteCache?: boolean
+			/** neo config, for chatgpt service */
+			neo?: { api: string }
 		}
 	}
 

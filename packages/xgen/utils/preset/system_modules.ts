@@ -13,7 +13,8 @@ import {
 	useToggle,
 	useUpdateEffect
 } from 'ahooks'
-import { Button, ConfigProvider, Drawer, Form, Input, Popover } from 'antd'
+import { Button, ConfigProvider, Drawer, Form, Input, Popover, Select } from 'antd'
+import to from 'await-to-js'
 import axios from 'axios'
 import { cx } from 'classix'
 import Emittery from 'emittery'
@@ -25,18 +26,23 @@ import * as React from 'react'
 import * as ReactDom from 'react-dom'
 import * as ReactDomClient from 'react-dom/client'
 import * as JsxRuntime from 'react/jsx-runtime'
+import { match, P } from 'ts-pattern'
 import { createMakeAndWithStyles } from 'tss-react'
 import { container, injectable, singleton } from 'tsyringe'
 
+import { DagreLayout } from '@antv/layout'
 import { Graph, Markup } from '@antv/x6'
 import { Scroller } from '@antv/x6-plugin-scroller'
-import { register } from '@antv/x6-react-shape'
+import { Portal, register } from '@antv/x6-react-shape'
+import { local, session } from '@yaoapp/storex'
 
 System.set('app:react', { default: React, ...React })
 System.set('app:react-dom', { default: ReactDom, ...ReactDom })
 System.set('app:react-dom/client', { default: ReactDomClient, ...ReactDomClient })
 System.set('app:react/jsx-runtime', { ...JsxRuntime })
 
+System.set('app:await-to-js', { default: to })
+System.set('app:ts-pattern', { match, P })
 System.set('app:axios', { default: axios })
 System.set('app:emittery', { default: Emittery })
 System.set('app:nanoid', { nanoid })
@@ -49,10 +55,21 @@ System.set('app:mobx', { toJS, makeAutoObservable, reaction, autorun, configure 
 System.set('app:mobx-react-lite', { observer })
 
 System.set('app:@antv/x6', { Graph, Markup })
-System.set('app:@antv/x6-react-shape', { register })
+System.set('app:@antv/x6-react-shape', { register, Portal })
 System.set('app:@antv/x6-plugin-scroller', { Scroller })
+System.set('app:@antv/layout', { DagreLayout })
 
-System.set('app:antd', { Input, Form, Drawer, Popover, Button, ConfigProvider })
+System.set('app:@yaoapp/storex', { local, session })
+
+System.set('app:antd', {
+	ConfigProvider,
+	Input,
+	Form,
+	Drawer,
+	Popover,
+	Button,
+	Select
+})
 System.set('app:ahooks', {
 	useMemoizedFn,
 	useClickAway,
@@ -77,6 +94,8 @@ System.addImportMap({
 		'react-dom/client',
 		'react/jsx-runtime',
 
+		'await-to-js',
+		'ts-pattern',
 		'axios',
 		'emittery',
 		'nanoid',
@@ -91,9 +110,12 @@ System.addImportMap({
 		'@antv/x6',
 		'@antv/x6-react-shape',
 		'@antv/x6-plugin-scroller',
+		'@antv/layout',
 
 		'antd',
-		'ahooks'
+		'ahooks',
+
+		'@yaoapp/storex'
 	].reduce((total, item) => {
 		total[item] = `app:${item}`
 
