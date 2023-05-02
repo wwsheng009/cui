@@ -27,7 +27,7 @@ export const metadata_env = {
 export const metadata_connector = {
 	type: {
 		name: '数据库类型',
-		value: ['sqlite', 'mysql']
+		value: ['sqlite', 'mysql', 'postgres', 'hdb']
 		// value: ['mysql', 'sqlite3', 'mongo', 'redis']
 	}
 }
@@ -67,6 +67,82 @@ export const metadata_connector_options = {
 				pass: {
 					name: '密码',
 					value: 'password'
+				}
+			}
+		}
+	},
+	postgres: {
+		db: {
+			name: '数据库名称',
+			value: 'string',
+			default: 'yao'
+		},
+		hosts: {
+			name: 'PG服务设置',
+			value: {
+				host: {
+					name: '服务地址',
+					value: 'string',
+					default: '127.0.0.1'
+				},
+				port: {
+					name: '服务端口',
+					value: 'number',
+					default: 5432
+				},
+				schema: {
+					name: '默认Schema',
+					value: 'string',
+					default: 'public'
+				},
+				user: {
+					name: '用户名',
+					value: 'string',
+					default: 'root'
+				},
+				pass: {
+					name: '密码',
+					value: 'password'
+				},
+				sslmode: {
+					name: 'SSL模式',
+					value: 'string',
+					default: 'disable'
+				}
+			}
+		}
+	},
+	hdb: {
+		db: {
+			name: '数据库名称',
+			value: 'string',
+			default: 'yao'
+		},
+		hosts: {
+			name: 'HDB服务设置',
+			value: {
+				host: {
+					name: '服务地址',
+					value: 'string',
+					default: '127.0.0.1'
+				},
+				port: {
+					name: '服务端口',
+					value: 'number',
+					default: 30015
+				},
+				user: {
+					name: '用户名',
+					value: 'string',
+					default: 'root'
+				},
+				pass: {
+					name: '密码',
+					value: 'password'
+				},
+				schema: {
+					name: '默认Schema',
+					value: 'string'
 				}
 			}
 		}
