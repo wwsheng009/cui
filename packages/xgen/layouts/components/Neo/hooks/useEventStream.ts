@@ -1,6 +1,7 @@
 import { useMemoizedFn } from 'ahooks'
+import axios from 'axios'
 import ntry from 'nice-try'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { getToken } from '@/knife'
 
@@ -9,15 +10,16 @@ import type { App } from '@/types'
 export default (api: string) => {
 	const [messages, setMessages] = useState<Array<App.ChatInfo>>([])
 	const [loading, setLoading] = useState(false)
+	const [cmd, setCmd] = useState<App.ChatAI['command']>()
 	const event_source = useRef<EventSource>()
+
+	const neo_api = useMemo(() => (api.startsWith('http') ? api : `/api/${window.$app.api_prefix}${api}`), [api])
 
 	const getData = useMemoizedFn((message: App.ChatHuman) => {
 		setLoading(true)
 
-		const _api = api.startsWith('http') ? api : `/api${api}`
-
 		const es = new EventSource(
-			`${_api}?content=${encodeURIComponent(message.text)}&context=${encodeURIComponent(
+			`${neo_api}?content=${encodeURIComponent(message.text)}&context=${encodeURIComponent(
 				JSON.stringify(message.context)
 			)}&token=${encodeURIComponent(getToken())}`
 		)
@@ -33,7 +35,7 @@ export default (api: string) => {
 
 			if (!formated_data) return
 
-			const { text, confirm, actions, done } = formated_data
+			const { text, confirm, actions, done, command } = formated_data
 			const current_answer = messages[messages.length - 1] as App.ChatAI
 
 			if (done) {
@@ -41,6 +43,18 @@ export default (api: string) => {
 				current_answer.actions = actions
 
 				setMessages(messages)
+
+				if (command) setCmd(command)
+
+				return setLoading(false)
+			}
+
+			if (cmd && !command) {
+				current_answer.confirm = confirm
+				current_answer.actions = actions
+
+				setMessages(messages)
+				setCmd(undefined)
 
 				return setLoading(false)
 			}
@@ -59,6 +73,14 @@ export default (api: string) => {
 		}
 	})
 
+	const exitCmd = useMemoizedFn(async () => {
+		setCmd(undefined)
+
+		try {
+			await axios.post(`${neo_api}?token=${encodeURIComponent(getToken())}`, { cmd: 'ExitCommandMode' })
+		} catch (error) {}
+	})
+
 	useEffect(() => {
 		if (!messages.length) return
 
@@ -73,5 +95,5 @@ export default (api: string) => {
 		return () => event_source.current?.close()
 	}, [])
 
-	return { messages, loading, setMessages }
+	return { messages, cmd, loading, setMessages, exitCmd }
 }
