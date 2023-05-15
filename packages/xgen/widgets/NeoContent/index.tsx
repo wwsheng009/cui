@@ -21,23 +21,25 @@ const Index = (props: IProps) => {
 	const [target, setTarget] = useState<any>()
 	const mdx_components = useMDXComponents(components)
 
-      useAsyncEffect(async () => {
-		console.log(source)
-            
-		const compiled_source = await compile(source, {
-			outputFormat: 'function-body',
-			providerImportSource: '#',
-			remarkPlugins: [remarkGfm],
-			rehypePlugins: [rehypeHighlight]
-            })
+	useAsyncEffect(async () => {
+		// console.log(source)
+		try {
+			const compiled_source = await compile(source, {
+				outputFormat: 'function-body',
+				providerImportSource: '#',
+				remarkPlugins: [remarkGfm],
+				rehypePlugins: [rehypeHighlight]
+			})
 
-		const { default: Content } = await run(compiled_source, {
-			...JsxRuntime,
-			Fragment,
-			useMDXComponents: () => mdx_components
-		})
-
-		setTarget(Content)
+			const { default: Content } = await run(compiled_source, {
+				...JsxRuntime,
+				Fragment,
+				useMDXComponents: () => mdx_components
+			})
+			setTarget(Content)
+		} catch (error) {
+			setTarget(source)
+		}
 		callback?.()
 	}, [source])
 

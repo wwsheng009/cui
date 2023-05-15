@@ -57,7 +57,11 @@ export default ({ api, studio }: Args) => {
 				current_answer.confirm = confirm
 				current_answer.actions = actions
 
-				setMessages([...messages])
+				const message_new = [...messages]
+				if (message_new.length > 0) {
+					message_new[message_new.length - 1] = { ...current_answer }
+					setMessages(message_new)
+				}
 
 				if (command) setCmd(command)
 
@@ -68,7 +72,12 @@ export default ({ api, studio }: Args) => {
 				current_answer.confirm = confirm
 				current_answer.actions = actions
 
-				setMessages([...messages])
+				const message_new = [...messages]
+				if (message_new.length > 0) {
+					message_new[message_new.length - 1] = { ...current_answer }
+					setMessages(message_new)
+				}
+
 				setCmd(undefined)
 
 				return setLoading(false)
@@ -77,11 +86,18 @@ export default ({ api, studio }: Args) => {
 			if (!text) return
 
 			if (text.startsWith('\r')) {
-				current_answer.text = toUnicode(text.replace('\r', ''))
+				if (cmd) {
+					current_answer.text = toUnicode(text.replace('\r', ''))
+				} else {
+					current_answer.text = text.replace('\r', '')
+				}
 			} else {
-				current_answer.text = current_answer.text + toUnicode(text)
+				if (cmd) {
+					current_answer.text = current_answer.text + toUnicode(text)
+				} else {
+					current_answer.text = current_answer.text + text
+				}
 			}
-
 			const message_new = [...messages]
 
 			if (message_new.length > 0) {
