@@ -1,20 +1,21 @@
-import { useMemoizedFn } from 'ahooks'
+import { useMemoizedFn, useAsyncEffect } from 'ahooks'
+import to from 'await-to-js'
 import axios from 'axios'
 import ntry from 'nice-try'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { getToken, getStudio } from '@/knife'
-import { toUnicode } from '@/utils'
 
 import type { App } from '@/types'
 
 type Args = { api: string; studio?: boolean }
 
 export default ({ api, studio }: Args) => {
+	const event_source = useRef<EventSource>()
 	const [messages, setMessages] = useState<Array<App.ChatInfo>>([])
 	const [loading, setLoading] = useState(false)
 	const [cmd, setCmd] = useState<App.ChatAI['command']>()
-	const event_source = useRef<EventSource>()
+	const [commands, setCommands] = useState([])
 
 	const neo_api = useMemo(() => {
 		const { protocol, hostname } = window.location
@@ -29,6 +30,26 @@ export default ({ api, studio }: Args) => {
 		() => (studio ? `&studio=${encodeURIComponent('Bearer ' + getStudio().token)}` : ''),
 		[studio]
 	)
+
+	// useAsyncEffect(async () => {
+	// 	if (!neo_api) return
+
+	// 	const [err, res] = await to(
+	// 		axios.get(`${neo_api}/history?&token=${encodeURIComponent(getToken())}${studio_token}`)
+	//       )
+
+	// 	console.log(err, res)
+	// }, [ neo_api, studio_token ])
+
+	// useAsyncEffect(async () => {
+	// 	if (!neo_api) return
+
+	//       const [err, res] = await to(
+	// 		axios.get(`${neo_api}/commands?&token=${encodeURIComponent(getToken())}${studio_token}`)
+	// 	)
+
+	// 	console.log(err, res)
+	// }, [neo_api, studio_token])
 
 	const getData = useMemoizedFn((message: App.ChatHuman) => {
 		setLoading(true)
@@ -57,11 +78,7 @@ export default ({ api, studio }: Args) => {
 				current_answer.confirm = confirm
 				current_answer.actions = actions
 
-				const message_new = [...messages]
-				if (message_new.length > 0) {
-					message_new[message_new.length - 1] = { ...current_answer }
-					setMessages(message_new)
-				}
+				setMessages([...messages])
 
 				if (command) setCmd(command)
 
@@ -72,12 +89,7 @@ export default ({ api, studio }: Args) => {
 				current_answer.confirm = confirm
 				current_answer.actions = actions
 
-				const message_new = [...messages]
-				if (message_new.length > 0) {
-					message_new[message_new.length - 1] = { ...current_answer }
-					setMessages(message_new)
-				}
-
+				setMessages([...messages])
 				setCmd(undefined)
 
 				return setLoading(false)
@@ -86,18 +98,11 @@ export default ({ api, studio }: Args) => {
 			if (!text) return
 
 			if (text.startsWith('\r')) {
-				if (cmd) {
-					current_answer.text = toUnicode(text.replace('\r', ''))
-				} else {
-					current_answer.text = text.replace('\r', '')
-				}
+				current_answer.text = text.replace('\r', '')
 			} else {
-				if (cmd) {
-					current_answer.text = current_answer.text + toUnicode(text)
-				} else {
-					current_answer.text = current_answer.text + text
-				}
+				current_answer.text = current_answer.text + text
 			}
+
 			const message_new = [...messages]
 
 			if (message_new.length > 0) {
