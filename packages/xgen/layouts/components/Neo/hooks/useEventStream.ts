@@ -41,8 +41,9 @@ export default ({ api, studio }: Args) => {
 		if (err) return
 
 		if (res.command) setCmd(res.command)
-
-		setMessages(res.data.map(({ role, content }) => ({ is_neo: role === 'assistant', text: content })))
+		if (res.data) {
+			setMessages(res.data.map(({ role, content }) => ({ is_neo: role === 'assistant', text: content })))
+		}
 	}, [neo_api, studio_token])
 
 	useAsyncEffect(async () => {
