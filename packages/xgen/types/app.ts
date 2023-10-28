@@ -1,4 +1,4 @@
-import type { Action } from '@/types'
+import type { Action, Common } from '@/types'
 
 export declare namespace App {
 	type Theme = 'light' | 'dark'
@@ -27,7 +27,15 @@ export declare namespace App {
 	type ChatHuman = {
 		is_neo: boolean
 		text: string
-		context?: { stack: string; pathname: string }
+		context?: {
+			namespace: string
+			stack: string
+			pathname: string
+			formdata: any
+			field?: Omit<Field, 'config'>
+			config?: Common.FieldDetail
+			signal?: ChatContext['signal']
+		}
 	}
 
 	type ChatInfo = ChatHuman | ChatAI
@@ -40,10 +48,21 @@ export declare namespace App {
 		}>
 	}
 
+	interface ChatContext {
+		placeholder: string
+		signal: any
+	}
+
 	interface Context {
 		namespace: string
 		primary: string
 		data_item: any
+	}
+
+	interface Field {
+		name: string
+		bind: string
+		config: Common.FieldDetail
 	}
 
 	type Role = {
@@ -102,7 +121,7 @@ export declare namespace App {
 			/** remote api cache, default is true */
 			remoteCache?: boolean
 			/** neo config, for chatgpt service */
-			neo?: { api: string; studio?: boolean; name?: string }
+			neo?: { api: string; studio?: boolean }
 		}
 	}
 

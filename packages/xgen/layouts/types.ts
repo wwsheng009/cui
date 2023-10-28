@@ -68,11 +68,11 @@ export interface IPropsNeo {
 	stack: string
 	api: string
 	studio?: boolean
-	name?: string
 }
 
 export interface IPropsNeoChatItem {
 	context: App.Context
+	field: App.Field
 	chat_info: App.ChatInfo
 	callback: () => void
 }

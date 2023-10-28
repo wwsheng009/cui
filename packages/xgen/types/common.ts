@@ -21,7 +21,12 @@ export declare namespace Common {
 		[key: string]: string | FieldDetail
 	}
 
+	interface AIConfig {
+		placeholder?: string
+	}
+
 	interface FieldDetail {
+		id: string
 		bind: string
 		view: {
 			bind?: string
@@ -31,7 +36,7 @@ export declare namespace Common {
 		edit: {
 			bind?: string
 			type: string
-			props: any
+			props: any & { ai?: AIConfig }
 		}
 	}
 

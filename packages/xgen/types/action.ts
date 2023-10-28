@@ -36,6 +36,24 @@ export declare namespace Action {
 		neo?: boolean
 	}
 
+	interface ShowMessage {
+		type: 'success' | 'warning' | 'error'
+		content: string
+	}
+
+	type EmitEvent = { key: string; value: any } | EventToggleNeo | EventSetFieldsValue | EventUnLoadingAI
+	type EventToggleNeo = {
+		key: 'app/setNeoVisible'
+		value: { visible: boolean; placeholder?: string; signal?: any }
+	}
+	type EventSetFieldsValue = {
+		key: `$namespace/setFieldsValue`
+		value: Record<string, any>
+	}
+	type EventUnLoadingAI = {
+		key: `$namespace/$item.bind/unloading`
+	}
+
 	interface ActionMap {
 		'Common.openModal': OpenModal
 		'Common.closeModal': {}
@@ -44,6 +62,8 @@ export declare namespace Action {
 		'Common.confirm': Confirm
 		'Common.refetch': {}
 		'Common.reload': Reload
+		'Common.showMessage': ShowMessage
+		'Common.emitEvent': EmitEvent
 		'Table.search': {}
 		'Table.save': Global.StringObject
 		'Table.delete': {}

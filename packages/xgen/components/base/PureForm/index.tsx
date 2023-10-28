@@ -66,12 +66,16 @@ const Index = (props: IPropsPureForm) => {
 
 	useLayoutEffect(() => {
 		window.$app.Event.on(`${namespace}/submit`, submit)
+		window.$app.Event.on(`${namespace}/setFieldsValue`, setFieldsValue)
 
-		return () => window.$app.Event.off(`${namespace}/submit`, submit)
-	}, [])
+		return () => {
+			window.$app.Event.off(`${namespace}/submit`, submit)
+			window.$app.Event.off(`${namespace}/setFieldsValue`, setFieldsValue)
+		}
+	}, [namespace])
 
 	useLayoutEffect(() => {
-		window.$app.Event.emit('app/getContext', { namespace, primary, data })
+		window.$app.Event.emit('app/getContext', { namespace, primary, data_item: data })
 	}, [namespace, primary, data])
 
 	const props_actions: IPropsActions = {
@@ -126,14 +130,14 @@ const Index = (props: IPropsPureForm) => {
 				<Actions {...props_actions}></Actions>
 			</div>
 			<div className='form_content_container w_100 flex relative'>
-                        <Form
-                              className='w_100'
+				<Form
+					className='w_100'
 					form={form}
 					name={namespace}
 					disabled={disabled}
 					layout='vertical'
 					onValuesChange={onValuesChange}
-                              style={ form_styles }
+					style={form_styles}
 				>
 					<div className='form_wrap w_100 border_box'>
 						<Sections {...props_sections}></Sections>

@@ -1,7 +1,7 @@
 import { useEventTarget, useKeyPress, useMemoizedFn } from 'ahooks'
 import { Input, Button, Popover } from 'antd'
 import clsx from 'clsx'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { ChatCircleText, PaperPlaneTilt, X, ArrowsOutSimple, ArrowsInSimple, Stop } from 'phosphor-react'
 import { useLayoutEffect, useEffect, useRef, useState, useMemo } from 'react'
 import { Else, If, Then } from 'react-if'
@@ -15,12 +15,12 @@ import { useEventStream } from './hooks'
 import styles from './index.less'
 
 import type { IPropsNeo } from '../../types'
-import type { App } from '@/types'
+import type { App, Common } from '@/types'
 
 const { TextArea } = Input
 
 const Index = (props: IPropsNeo) => {
-	const { stack, api, studio, name } = props
+	const { stack, api, studio } = props
 	const locale = getLocale()
 	const { pathname } = useLocation()
 	const textarea = useRef<HTMLTextAreaElement>(null)
@@ -34,6 +34,12 @@ const Index = (props: IPropsNeo) => {
 		primary: '',
 		data_item: {}
 	})
+	const [field, setField] = useState<App.Field>({
+		name: '',
+		bind: '',
+		config: {} as Common.FieldDetail
+	})
+	const [chat_context, setChatContext] = useState<App.ChatContext>({ placeholder: '', signal: '' })
 	const ref = useRef<HTMLDivElement>(null)
 	const [value, { onChange }] = useEventTarget({ initialValue: '' })
 	const { messages, cmd, commands, loading, setMessages, stop, exitCmd } = useEventStream({ api, studio })
@@ -61,15 +67,46 @@ const Index = (props: IPropsNeo) => {
 		setSearchCommands(fuzzyQuery(commands, value.replace('/', ''), 'name'))
 	}, [commands, value, visible_commands])
 
-	const getContext = useMemoizedFn((ctx: App.Context) => setContext(ctx))
-	const setNeoVisible = useMemoizedFn(() => setVisible(true))
+	const getContext = useMemoizedFn((v: App.Context) => setContext(v))
+	const getField = useMemoizedFn((v: App.Field & { text: string; config: Common.FieldDetail }) => {
+		if (loading) return
+
+		setField(v)
+
+		setMessages([
+			...messages,
+			{
+				is_neo: false,
+				text: v.text,
+				context: {
+					namespace: context.namespace,
+					stack,
+					pathname,
+					formdata: context.data_item,
+					field: { name: v.name, bind: v.bind },
+					config: v.config,
+					signal: chat_context.signal
+				}
+			}
+		])
+	})
+	const setNeoVisible = useMemoizedFn((v) => {
+		if (v) {
+			setVisible(v.visible)
+			setChatContext({ placeholder: v.placeholder, signal: v.signal })
+		} else {
+			setVisible(true)
+		}
+	})
 
 	useLayoutEffect(() => {
 		window.$app.Event.on('app/getContext', getContext)
+		window.$app.Event.on('app/getField', getField)
 		window.$app.Event.on('app/setNeoVisible', setNeoVisible)
 
 		return () => {
 			window.$app.Event.off('app/getContext', getContext)
+			window.$app.Event.off('app/getField', getField)
 			window.$app.Event.off('app/setNeoVisible', setNeoVisible)
 		}
 	}, [])
@@ -86,7 +123,22 @@ const Index = (props: IPropsNeo) => {
 		if (loading) return
 		if (!value) return
 
-		setMessages([...messages, { is_neo: false, text: value, context: { stack, pathname } }])
+		setMessages([
+			...messages,
+			{
+				is_neo: false,
+				text: value,
+				context: {
+					namespace: context.namespace,
+					stack,
+					pathname,
+					formdata: context.data_item,
+					field: { name: field.name, bind: field.bind },
+					config: field.config,
+					signal: chat_context.signal
+				}
+			}
+		])
 
 		setTimeout(() => {
 			onChange({ target: { value: '' } })
@@ -123,138 +175,162 @@ const Index = (props: IPropsNeo) => {
 		)
 	}, [commands, max, search_commands])
 
+	const placeholder = useMemo(() => {
+		if (chat_context.placeholder) return chat_context.placeholder
+
+		return is_cn ? '输入业务指令或者询问任何问题' : 'Input business commands or ask any questions.'
+	}, [is_cn, chat_context.placeholder])
+
+	const exit = useMemoizedFn(() => {
+		if (cmd?.name) exitCmd()
+
+		if (field.name) {
+			setField({
+				name: '',
+				bind: '',
+				config: {} as Common.FieldDetail
+			})
+		}
+	})
+
 	return (
 		<div className={clsx('fixed flex flex_column align_end', styles._local)}>
-			<AnimatePresence>
-				{visible && (
-					<motion.div
-						className='chatbox_wrap'
-						initial={{ opacity: 0, width: 0, height: 0 }}
-						animate={{
-							opacity: 1,
-							width: max ? 900 : 360,
-							height: max ? 'min(1200px,calc(100vh - 30px - 48px - 18px - 60px))' : 480
-						}}
-						exit={{ opacity: 0, width: 0, height: 0 }}
-						transition={{ duration: 0.18 }}
-					>
-						<div className='chatbox_transition_wrap w_100 h_100 flex flex_column relative'>
-							<div className='header_wrap w_100 border_box flex justify_between align_center absolute top_0'>
-								<If condition={cmd?.name}>
-									<Then>
-										<div className='title flex flex_column'>
-											<span className='cmd_title'>
-												{is_cn ? '命令模式：' : 'Command mode:'}
-											</span>
-											<span className='cmd_name'>{cmd?.name}</span>
-										</div>
-										<span
-											className='btn_exit_cmd cursor_point'
-											onClick={exitCmd}
-										>
-											{is_cn ? '退出' : 'Exit'}
+			<motion.div
+				className='chatbox_wrap'
+				animate={
+					visible
+						? {
+								opacity: 1,
+								width: max ? 900 : 360,
+								height: max
+									? 'min(1200px,calc(100vh - 30px - 48px - 18px - 60px))'
+									: 480
+						  }
+						: { opacity: 0, width: 0, height: 0 }
+				}
+				transition={{ duration: 0.18 }}
+			>
+				<div className='chatbox_transition_wrap w_100 h_100 flex flex_column relative'>
+					<div className='header_wrap w_100 border_box flex justify_between align_center absolute top_0'>
+						<If condition={cmd?.name || field.name}>
+							<Then>
+								{cmd?.name && (
+									<div className='title flex flex_column'>
+										<span className='cmd_title'>
+											{is_cn ? '命令模式：' : 'Command mode:'}
 										</span>
-									</Then>
-									<Else>
-										<div className='title'>
-											{is_cn
-												? `你好，我是${name ?? 'Neo'}，你的AI业务助手`
-												: `Hello, I am ${
-														name ?? 'Neo'
-												  }, your AI business assistant.`}
-										</div>
-										<div
-											className='btn_max flex justify_center align_center clickable'
-											onClick={() => setMax(!max)}
-										>
-											{max ? (
-												<ArrowsInSimple size={16} />
-											) : (
-												<ArrowsOutSimple size={16} />
-											)}
-										</div>
-									</Else>
-								</If>
-							</div>
-							<div className='content_wrap w_100 justify_end' ref={ref}>
-								<div className='chat_contents w_100 border_box flex flex_column justify_end'>
-									{messages.map((item, index) => (
-										<ChatItem
-											context={context}
-											chat_info={item}
-											callback={callback}
-											key={index}
-										></ChatItem>
-									))}
-									{loading && (
-										<div className='btn_stop_wrap w_100 flex justify_center'>
-											<Button
-												className='flex align_center'
-												icon={
-													<Stop
-														className='icon_stop mr_4'
-														size={16}
-													></Stop>
-												}
-												onClick={stop}
-											>
-												{is_cn ? '停止生成' : 'Stop generating'}
-											</Button>
-										</div>
-									)}
-								</div>
-							</div>
-							<div className='footer_wrap w_100 border_box flex align_center relative'>
-								<Popover
-									overlayClassName={styles.commands_popover}
-									content={Commands}
-									placement='topLeft'
-									showArrow={false}
-									open={visible_commands}
-								>
-									<TextArea
-										className={clsx(
-											'input_chat flex align_center',
-											resized && 'resized'
-										)}
-										placeholder={
-											is_cn
-												? '输入业务指令或者询问任何问题'
-												: 'Input business commands or ask any questions.'
-										}
-										ref={textarea}
-										autoSize
-										value={value}
-										onChange={onChange}
-										onResize={({ height }) => setResized(height > 38)}
-									></TextArea>
-								</Popover>
+										<span className='cmd_name'>{cmd?.name}</span>
+									</div>
+								)}
+								{field.name && (
+									<div className='title flex flex_column'>
+										<span className='cmd_title'>
+											{is_cn ? '字段模式：' : 'Field mode:'}
+										</span>
+										<span className='cmd_name'>
+											{field.name}-{field.bind}
+										</span>
+									</div>
+								)}
+								<span className='btn_exit_cmd cursor_point' onClick={exit}>
+									{is_cn ? '退出' : 'Exit'}
+								</span>
+							</Then>
+							<Else>
+								<div className='title'>{is_cn ? 'AI业务助手' : 'AI Assistant'}</div>
 								<div
-									className={clsx(
-										'btn_submit flex justify_center align_center absolute clickable',
-										loading && 'disabled'
-									)}
-									onClick={submit}
+									className='btn_max flex justify_center align_center clickable'
+									onClick={() => setMax(!max)}
 								>
-									<If condition={!loading}>
-										<Then>
-											<PaperPlaneTilt size={16}></PaperPlaneTilt>
-										</Then>
-										<Else>
-											<div className='loading_wrap flex align_center'>
-												<span className='loading_dot'></span>
-												<span className='loading_dot'></span>
-												<span className='loading_dot'></span>
-											</div>
-										</Else>
-									</If>
+									{max ? (
+										<ArrowsInSimple size={16} />
+									) : (
+										<ArrowsOutSimple size={16} />
+									)}
 								</div>
-							</div>
+							</Else>
+						</If>
+					</div>
+					<div className='content_wrap w_100 justify_end' ref={ref}>
+						<div className='chat_contents w_100 border_box flex flex_column justify_end'>
+							{messages.map((item, index) => (
+								<ChatItem
+									context={context}
+									field={field}
+									chat_info={item}
+									callback={callback}
+									key={index}
+								></ChatItem>
+							))}
+							{loading && (
+								<div className='btn_stop_wrap w_100 flex justify_center'>
+									<Button
+										className='flex align_center'
+										icon={<Stop className='icon_stop mr_4' size={16}></Stop>}
+										onClick={() => {
+											stop()
+
+											if (field.name) {
+												window.$app.Event.emit(
+													`${context.namespace}/${field.bind}/unloading`
+												)
+											}
+										}}
+									>
+										{is_cn ? '停止生成' : 'Stop generating'}
+									</Button>
+								</div>
+							)}
 						</div>
-					</motion.div>
-				)}
-			</AnimatePresence>
-			<span className='btn_chat flex justify_center align_center' onClick={() => setVisible(!visible)}>
+					</div>
+					<div className='footer_wrap w_100 border_box flex align_center relative'>
+						<Popover
+							overlayClassName={styles.commands_popover}
+							content={Commands}
+							placement='topLeft'
+							showArrow={false}
+							open={visible_commands}
+						>
+							<TextArea
+								className={clsx('input_chat flex align_center', resized && 'resized')}
+								placeholder={placeholder}
+								ref={textarea}
+								autoSize
+								value={value}
+								onChange={onChange}
+								onResize={({ height }) => setResized(height > 38)}
+							></TextArea>
+						</Popover>
+						<div
+							className={clsx(
+								'btn_submit flex justify_center align_center absolute clickable',
+								loading && 'disabled'
+							)}
+							onClick={submit}
+						>
+							<If condition={!loading}>
+								<Then>
+									<PaperPlaneTilt size={16}></PaperPlaneTilt>
+								</Then>
+								<Else>
+									<div className='loading_wrap flex align_center'>
+										<span className='loading_dot'></span>
+										<span className='loading_dot'></span>
+										<span className='loading_dot'></span>
+									</div>
+								</Else>
+							</If>
+						</div>
+					</div>
+				</div>
+			</motion.div>
+			<span
+				className='btn_chat flex justify_center align_center'
+				onClick={() => {
+					setVisible(!visible)
+					setChatContext({ placeholder: '', signal: '' })
+				}}
+			>
 				<If condition={visible}>
 					<Then>
 						<X size={24} weight='duotone'></X>
