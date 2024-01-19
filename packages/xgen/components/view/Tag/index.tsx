@@ -1,5 +1,4 @@
 import { Tag } from 'antd'
-import clsx from 'clsx'
 import { observer } from 'mobx-react-lite'
 import React, { useLayoutEffect, useState } from 'react'
 import { container } from 'tsyringe'
@@ -10,7 +9,6 @@ import Model from './model'
 import type { Component } from '@/types'
 import type { TagProps } from 'antd'
 import type { Remote } from '@/types'
-import { find } from 'lodash-es'
 
 export interface IProps extends Remote.IProps, TagProps, Component.PropsViewComponent {
 	bind?: string
@@ -52,14 +50,6 @@ const Index = (props: IProps) => {
 		x.remote.init()
 	}, [])
 
-	// if (typeof props.__value === 'string') {
-	// 	return (
-	// 		<CommonTag
-	// 			pure={props.pure}
-	// 			item={x.item || { label: props.__value, color: props.color, textColor: props.textColor }}
-	// 		></CommonTag>
-	// 	)
-	// }
 
 	if (Array.isArray(props.__value) && props.__value.length) {
 		return (
@@ -78,16 +68,16 @@ const Index = (props: IProps) => {
 			</div >
 		)
 	}
-	//如果是单个值，也可以选项里搜索label
-	if (x.remote.options.length) {
-		return (
-			<CommonTag
-				pure={props.pure}
-				item={x.find(props.__value) || { label: props.__value, color: props.color, textColor: props.textColor }}
-			></CommonTag>
-		)
-	}
-	if (typeof props.__value === 'string') {
+	if (typeof props.__value === 'string' || typeof props.__value === 'number') {
+		// Match the label of the current value
+		if (props.options) {
+			const option = props.options.find((item) => item.value === props.__value)
+			if (option) {
+				return <CommonTag pure={props.pure} item={option}></CommonTag>
+			}
+		}
+
+		// Use the value of props directly
 		return (
 			<CommonTag
 				pure={props.pure}
@@ -95,6 +85,7 @@ const Index = (props: IProps) => {
 			></CommonTag>
 		)
 	}
+
 	return <span>-</span>
 }
 
