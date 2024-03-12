@@ -92,6 +92,10 @@ export declare namespace App {
 	interface Info {
 		/** Application Name */
 		name: string
+
+		/** Application version */
+		version?: string
+
 		/** Application description */
 		description?: string
 		/** api prefix, default is __yao */
@@ -122,6 +126,8 @@ export declare namespace App {
 			remoteCache?: boolean
 			/** neo config, for chatgpt service */
 			neo?: { api: string; studio?: boolean }
+			/** menu config, default is { layout:"2-columns", hide:false, showName:false }  */
+			menu?: { layout: '1-column' | '2-columns'; hide?: boolean; showName?: boolean }
 		}
 	}
 
@@ -135,6 +141,7 @@ export declare namespace App {
 
 	interface Menu {
 		id: number
+		key: string
 		name: string
 		icon: string
 		path: string

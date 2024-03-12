@@ -1,6 +1,7 @@
 import type { Component } from '@/types'
 import { Else, If, Then } from 'react-if'
 import { local, session } from '@yaoapp/storex'
+import { getLocale } from '@umijs/max'
 
 interface IProps {
 	url?: string
@@ -23,15 +24,14 @@ const Index = (props: IProps) => {
 		const token = getToken()
 		if (data) {
 			data['__token'] = token
+			data['__locale'] = getLocale()
 		}
 
 		const new_url = url.replace(/{{\s*([^}]+)\s*}}/gi, (match, p1) => {
 			p1 = p1.trim()
 			return data?.[p1] || ''
 		})
-
-		const uri = new URL(new_url)
-		const new_params = uri.searchParams
+		const new_params = new URLSearchParams()
 		for (const key in params) {
 			const value = params[key]
 			new_params.append(

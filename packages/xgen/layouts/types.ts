@@ -20,6 +20,7 @@ export interface IPropsLoginWrapperLeft {
 export interface IPropsLoading {
 	loading: boolean
 	menu: Array<App.Menu>
+	show_name?: boolean
 	visible_menu: GlobalModel['visible_menu']
 }
 
@@ -42,6 +43,7 @@ export interface IPropsItems {
 	items: GlobalModel['menu']
 	current_nav: GlobalModel['current_nav']
 	in_setting: GlobalModel['in_setting']
+	show_name?: boolean
 	setInSetting: IPropsNav['setInSetting']
 }
 
@@ -52,6 +54,7 @@ export interface IPropsOptions {
 	avatar: GlobalModel['avatar']
 	app_info: GlobalModel['app_info']
 	user: GlobalModel['user']
+	show_name?: boolean
 	setAvatar: GlobalModel['setAvatar']
 	setInSetting: IPropsNav['setInSetting']
 }
@@ -61,7 +64,10 @@ export interface IPropsMenu {
 	parent: App.Menu
 	items: Array<App.Menu>
 	menu_key_path: GlobalModel['menu_key_path']
+	menu_selected_keys: GlobalModel['menu_selected_keys']
 	visible: GlobalModel['visible_menu']
+	show_name?: boolean
+	nav_props?: IPropsNav
 }
 
 export interface IPropsNeo {
@@ -80,6 +86,8 @@ export interface IPropsNeoChatItem {
 export interface IPropsContainer {
 	menu: Array<App.Menu>
 	visible_menu: GlobalModel['visible_menu']
+	menu_layout: '1-column' | '2-columns'
+	show_name?: boolean
 }
 
 export interface IPropsSettingModalContent {

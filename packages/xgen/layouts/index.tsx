@@ -7,10 +7,14 @@ import { observer } from 'mobx-react-lite'
 import { Fragment, useLayoutEffect, useMemo, useState } from 'react'
 import { HelmetProvider } from 'react-helmet-async'
 import { container } from 'tsyringe'
+import { If, Then } from 'react-if'
 
 import { GlobalContext, GlobalModel } from '@/context/app'
 import { useIntl } from '@/hooks'
 import { Outlet, useLocation } from '@umijs/max'
+
+import ContainerColumnOne from './components/ColumnOne/Container'
+import MenuColumnOne from './components/ColumnOne/Menu'
 
 import Container from './components/Container'
 import Helmet from './components/Helmet'
@@ -19,6 +23,7 @@ import Menu from './components/Menu'
 import Nav from './components/Nav'
 import Neo from './components/Neo'
 import LoginWrapper from './wrappers/Login'
+import AuthWrapper from './wrappers/Auth'
 
 import type {
 	IPropsHelmet,
@@ -36,6 +41,7 @@ const Index = () => {
 	const { pathname } = useLocation()
 	const menu = toJS(global.menu)
 	const is_login = pathname.indexOf('/login/') !== -1 || pathname === '/'
+	const is_auth = pathname === '/auth'
 
 	useLayoutEffect(() => {
 		window.$global = global
@@ -57,7 +63,8 @@ const Index = () => {
 	}, [pathname])
 
 	const menu_items = useMemo(() => menu[global.current_nav]?.children || [], [menu, global.current_nav])
-
+	const layout = global.app_info.optional?.menu?.layout || '2-columns'
+	const show_name = global.app_info.optional?.menu?.showName || false
 	const props_helmet: IPropsHelmet = {
 		theme: global.theme,
 		app_info: global.app_info
@@ -72,7 +79,8 @@ const Index = () => {
 	const props_loading: IPropsLoading = {
 		loading: global.loading,
 		menu: menu_items,
-		visible_menu: global.visible_menu
+		visible_menu: global.visible_menu,
+		show_name: show_name
 	}
 
 	const props_nav: IPropsNav = {
@@ -91,7 +99,9 @@ const Index = () => {
 		parent: menu[global.current_nav],
 		items: menu_items,
 		menu_key_path: toJS(global.menu_key_path),
-		visible: global.visible_menu
+		menu_selected_keys: toJS(global.menu_selected_keys),
+		visible: global.visible_menu,
+		show_name: show_name
 	}
 
 	const props_neo: IPropsNeo = {
@@ -102,7 +112,9 @@ const Index = () => {
 
 	const props_container: IPropsContainer = {
 		menu: menu_items,
-		visible_menu: global.visible_menu
+		visible_menu: global.visible_menu,
+		menu_layout: layout,
+		show_name: show_name
 	}
 
 	return (
@@ -110,21 +122,68 @@ const Index = () => {
 			<Helmet {...props_helmet}></Helmet>
 			<ConfigProvider prefixCls='xgen'>
 				<GlobalContext.Provider value={global}>
-					{is_login ? (
-						<LoginWrapper {...props_Login_wrapper}>
-							<Outlet />
-						</LoginWrapper>
-					) : (
-						<Fragment>
-							<Loading {...props_loading}></Loading>
-							<Nav {...props_nav}></Nav>
-							<Menu {...props_menu}></Menu>
-							<Container {...props_container}>
+					<If condition={is_login}>
+						<Then>
+							<LoginWrapper {...props_Login_wrapper}>
 								<Outlet />
-							</Container>
-							{global.app_info.optional?.neo?.api && <Neo {...props_neo}></Neo>}
-						</Fragment>
-					)}
+							</LoginWrapper>
+						</Then>
+					</If>
+
+					<If condition={is_auth}>
+						<Then>
+							<AuthWrapper {...props_Login_wrapper}>
+								<Outlet />
+							</AuthWrapper>
+						</Then>
+					</If>
+
+					<If condition={!is_auth && !is_login}>
+						<Then>
+							<Fragment>
+								<If condition={layout === '2-columns'}>
+									<Then>
+										<Loading {...props_loading}></Loading>
+										<Nav {...props_nav}></Nav>
+										<Menu {...props_menu}></Menu>
+										<Container {...props_container}>
+											<Outlet />
+										</Container>
+									</Then>
+								</If>
+
+								<If condition={layout === '1-column'}>
+									<Then>
+										<Loading {...props_loading}></Loading>
+										<MenuColumnOne
+											{...props_menu}
+											nav_props={props_nav}
+										></MenuColumnOne>
+										<ContainerColumnOne {...props_container}>
+											<Outlet />
+										</ContainerColumnOne>
+									</Then>
+								</If>
+
+								<If condition={layout !== '1-column' && layout !== '2-columns'}>
+									<Then>
+										<div className='text_center mt_20'>
+											<strong>layout = {layout}</strong>
+											<p>
+												app.yao{' '}
+												<strong>menu.optional.menu.layout</strong> ,
+												shoule be <strong>1-column</strong> or
+												<strong>2-columns</strong>. Please check the
+												configuration.
+											</p>
+										</div>
+									</Then>
+								</If>
+
+								{global.app_info.optional?.neo?.api && <Neo {...props_neo}></Neo>}
+							</Fragment>
+						</Then>
+					</If>
 				</GlobalContext.Provider>
 			</ConfigProvider>
 		</HelmetProvider>

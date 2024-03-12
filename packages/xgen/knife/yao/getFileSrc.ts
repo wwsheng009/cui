@@ -4,8 +4,7 @@ const Index = (name: string) => {
 	if (typeof name !== 'string') {
 		return
 	}
-	if (name.startsWith('http')) return name
-
+	if (name && name.startsWith('http')) return name
 	return `${name}&token=${getToken()}`
 }
 

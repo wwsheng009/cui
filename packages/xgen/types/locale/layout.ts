@@ -1,6 +1,9 @@
 export default interface Layout {
 	not_found: string
 	logout: string
+	auth: {
+		loading: string
+	}
 	menu: {
 		search_placeholder: string
 	}
@@ -13,6 +16,10 @@ export default interface Layout {
 		}
 		theme: {
 			title: string
+		}
+		system: {
+			name: string
+			version: string
 		}
 	}
 }
