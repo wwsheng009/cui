@@ -1,6 +1,8 @@
-/** 图标组件，支持如下两种图标库：
- * feather icon https://feathericons.com/
- * material design icon https://fonts.google.com/icons
+/**
+ * Icon Component
+ * feather icon https://feathericons.com/  icon-*
+ * material symbols https://fonts.google.com/icons?icon.set=Material+Symbols material-*
+ * material icons https://fonts.google.com/icons?icon.set=Material+Icons  *-outline *-filled
  */
 
 import clsx from 'clsx'
@@ -33,10 +35,12 @@ const Index = (props: IProps) => {
 
 	const md = useMemo(() => {
 		if (!name) return {}
-
+		// material_symbols https://fonts.google.com/icons
+		if (name.indexOf('material-') !== -1) {
+			return { type: 'material', name: name.replace(/^material-/, '') }
+		}
 		const arr = name.split('-')
 		const type = arr.pop()
-
 		return {
 			type,
 			name: arr.join('_')
