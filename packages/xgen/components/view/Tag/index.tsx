@@ -26,11 +26,12 @@ interface IPropsCommonTag {
 }
 
 const CommonTag = window.$app.memo(({ pure, margin, item }: IPropsCommonTag) => {
+	if (item?.label === '<empty>')
+		return <Tag className={styles._local} color={item.color} style={{ backgroundColor: 'transparent' }}></Tag>
 	if (!item || (!item.label && !item.value)) return <span>-</span>
 	if (pure) return <span>{item.label}</span>
 
 	const style: React.CSSProperties = {}
-
 	if (margin) style['marginRight'] = 4
 	if (item.textColor) style['color'] = item.textColor
 
