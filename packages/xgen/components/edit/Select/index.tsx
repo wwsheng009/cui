@@ -15,17 +15,23 @@ import Model from './model'
 
 import type { IProps, ICustom } from './types'
 import type { SelectProps } from 'antd'
+import axios from 'axios'
 
 const Custom = window.$app.memo((props: ICustom) => {
 	const { __name, value: __value, xProps, ...rest_props } = props
 	const [value, setValue] = useState<SelectProps['value']>()
 	const is_cn = getLocale() === 'zh-CN'
+	const [options, setOptions] = useState<SelectProps['options']>(props.options || [])
 
 	useEffect(() => {
 		if (__value === undefined || __value === null) return
 
 		setValue(__value)
 	}, [props.mode, __value])
+
+	useEffect(() => {
+		setOptions(props.options || [])
+	}, [props.options])
 
 	const onChange: SelectProps['onChange'] = (v) => {
 		if (!props.onChange) return
@@ -36,6 +42,28 @@ const Custom = window.$app.memo((props: ICustom) => {
 		setValue(v)
 	}
 
+	// Merge the remote api for search
+	// props.search will be deprecated in the future
+	const defaultOnSearch: SelectProps['onSearch'] = (v) => {
+		// Trigger remote search
+		if (xProps?.remote) {
+			const api = xProps.remote.api
+			const params = { ...xProps.remote.params, ['keywords']: v }
+			axios.get<any, SelectProps['options']>(api, { params })
+				.then((res) => {
+					setOptions(res)
+				})
+				.catch((err) => {
+					console.error('[Select] remote search error', err)
+				})
+		}
+	}
+
+	if (rest_props.showSearch) {
+		rest_props.onSearch = rest_props.onSearch ? rest_props.onSearch : defaultOnSearch
+	}
+
+	const onClear = () => setValue(null)
 	return (
 		<Select
 			className={clsx([styles._local, props.mode === 'multiple' && styles.multiple])}
@@ -44,7 +72,9 @@ const Custom = window.$app.memo((props: ICustom) => {
 			getPopupContainer={(node) => node.parentNode}
 			value={value}
 			onChange={onChange}
+			onClear={onClear}
 			{...rest_props}
+			options={options}
 		></Select>
 	)
 })
