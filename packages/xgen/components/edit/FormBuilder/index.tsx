@@ -12,7 +12,6 @@ import clsx from 'clsx'
 import { Presets, Remote, Setting } from './types'
 import Sidebar from './components/Sidebar'
 import Canvas from './components/Canvas'
-import Panel from './components/Panel'
 import { Else, If, Then } from 'react-if'
 import { GetPresets, GetSetting } from './utils'
 
@@ -48,11 +47,6 @@ const Index = (props: IProps) => {
 		height = height + 24
 		setHeight(height >= 300 ? height : 300)
 	}
-
-	// Panel setting
-	const [open, setOpen] = useState(false)
-	const showPanel = (key: string) => setOpen(true)
-	const hidePanel = () => setOpen(false)
 
 	// Set the width of the grid layout
 	const [width, setWidth] = useState(0)
@@ -115,13 +109,11 @@ const Index = (props: IProps) => {
 						<Sidebar types={setting?.types} height={height} />
 						<Canvas
 							width={width}
-							showPanel={showPanel}
 							setting={setting}
 							presets={presets}
 							onChange={onChange}
 							value={__value}
 						/>
-						<Panel open={open} onClose={hidePanel} />
 					</Else>
 				</If>
 			</div>
