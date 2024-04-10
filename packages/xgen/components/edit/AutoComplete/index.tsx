@@ -11,14 +11,40 @@ import styles from './index.less'
 import Model from './model'
 
 import type { IProps, ICustom } from './types'
-import type { AutoCompleteProps } from 'antd'
+import type { AutoCompleteProps, SelectProps } from 'antd'
 import axios from 'axios'
+import { Icon } from '@/widgets'
 
 const Custom = window.$app.memo((props: ICustom) => {
 	const { __name, value: __value, xProps, onSearch, ...rest_props } = props
 	const [value, setValue] = useState<AutoCompleteProps['value']>()
 	const [options, setOptions] = useState<AutoCompleteProps['options']>(props.options || [])
 	const is_cn = getLocale() === 'zh-CN'
+
+	const parseOptions = (options?: any[]): SelectProps['options'] => {
+		const opts: SelectProps['options'] = []
+		if (options) {
+			for (const item of options) {
+				let label = item.label
+				if (item.icon) {
+					const size = item.icon.size || 16
+					const name = item.icon.name || item.icon
+					label = (
+						<div style={{ display: 'flex', alignItems: 'center' }}>
+							<Icon name={name} size={size} className='mr_4' />
+							<span>{item.label}</span>
+						</div>
+					)
+				}
+
+				opts.push({
+					label: label,
+					value: item.value
+				})
+			}
+		}
+		return opts
+	}
 
 	useEffect(() => {
 		if (__value === undefined || __value === null) return
@@ -27,7 +53,7 @@ const Custom = window.$app.memo((props: ICustom) => {
 	}, [props.mode, __value])
 
 	useEffect(() => {
-		setOptions(props.options || [])
+		setOptions(parseOptions(props.options))
 	}, [props.options])
 
 	const onChange: AutoCompleteProps['onChange'] = (v) => {
@@ -37,7 +63,7 @@ const Custom = window.$app.memo((props: ICustom) => {
 			const params = { ...xProps.remote.params, ['keywords']: v }
 			axios.get<any, AutoCompleteProps['options']>(api, { params })
 				.then((res) => {
-					setOptions(res)
+					setOptions(parseOptions(res))
 				})
 				.catch((err) => {
 					console.error('[AutoComplete] remote search error', err)
