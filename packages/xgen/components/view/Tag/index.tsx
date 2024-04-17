@@ -103,6 +103,18 @@ const Index = (props: IProps) => {
 		)
 	}
 
+	if (Array.isArray(props.__value) && props.__value.length) {
+		return (
+			<div className='flex'>
+				{props.__value.map((item, index) => {
+					const value = item.value || item
+					const option = x.find(value) || { label: value, value: value }
+					return <CommonTag pure={props.pure} item={option} margin key={index}></CommonTag>
+				})}
+			</div>
+		)
+	}
+
 	return <span>-</span>
 }
 
