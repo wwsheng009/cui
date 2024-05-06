@@ -34,11 +34,34 @@ interface IFormBuilderProps {
 interface IProps extends Component.PropsEditComponent, IFormBuilderProps {}
 
 const FormBuilder = window.$app.memo((props: IProps) => {
+	const [width, setWidth] = useState(0)
+	const [height, setHeight] = useState(props.height && props.height >= 300 ? props.height : 300)
+	const [isFixed, setIsFixed] = useState(false)
 	const [value, setValue] = useState<any>()
 	const [loading, setLoading] = useState<boolean>(false)
 	const [setting, setSetting] = useState<Setting | undefined>(undefined)
 	const ref = useRef<HTMLDivElement>(null)
 	const global = useGlobal()
+
+	// Fixed sidebar, canvas and toolbar
+	const offsetTop = 80
+	useEffect(() => {
+		const handleScroll = () => {
+			const top = ref.current?.getBoundingClientRect().top || 0
+			const height = ref.current?.offsetHeight || 0
+			// console.log(top, height, top + height)
+			if (top <= offsetTop && top + height > offsetTop) {
+				setIsFixed(true)
+			} else {
+				setIsFixed(false)
+			}
+		}
+
+		window.addEventListener('scroll', handleScroll)
+		return () => {
+			window.removeEventListener('scroll', handleScroll)
+		}
+	}, [])
 
 	useEffect(() => {
 		if (!props.value) return
@@ -53,9 +76,6 @@ const FormBuilder = window.$app.memo((props: IProps) => {
 		props.onChange && props.onChange(value)
 	}
 
-	// Set the width of the grid layout
-	const [width, setWidth] = useState(0)
-	const [height, setHeight] = useState(props.height && props.height >= 300 ? props.height : 300)
 	useEffect(() => {
 		const observer = new ResizeObserver((entries) => {
 			for (let entry of entries) {
@@ -96,8 +116,10 @@ const FormBuilder = window.$app.memo((props: IProps) => {
 					</div>
 				</Then>
 				<Else>
-					<Sidebar types={setting?.types} height={height} />
+					<Sidebar types={setting?.types} height={height} offsetTop={offsetTop} fixed={isFixed} />
 					<Canvas
+						offsetTop={offsetTop}
+						fixed={isFixed}
 						width={width}
 						setting={setting}
 						presets={props.presets}
