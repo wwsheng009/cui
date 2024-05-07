@@ -9,6 +9,7 @@ import Model from './model'
 import type { Component } from '@/types'
 import type { TagProps } from 'antd'
 import type { Remote } from '@/types'
+import clsx from 'clsx'
 
 export interface IProps extends Remote.IProps, TagProps, Component.PropsViewComponent {
 	bind?: string
