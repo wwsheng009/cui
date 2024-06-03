@@ -1,14 +1,13 @@
-import Preset from '@/components/edit/FormBuilder/components/Preset'
 import { Icon, Panel } from '@/widgets'
 import Flow from '../Flow'
 import { FlowValue, Type } from '../../types'
-import { IconName, IconSize } from '../../utils'
-import { Node as ReactFlowNode } from 'reactflow'
+import { Execute, IconName, IconSize } from '../../utils'
 import { useBuilderContext } from '../Builder/Provider'
-import { useState } from 'react'
 
-import yaml from 'js-yaml'
-import { Button, message } from 'antd'
+import { Button, Tooltip, message } from 'antd'
+import Presets from '../Presets'
+import { useState } from 'react'
+import Filter from '../Presets/Filter'
 
 interface IProps {
 	width: number
@@ -17,6 +16,11 @@ interface IProps {
 	showSidebar: boolean
 	fixed: boolean
 	offsetTop: number
+
+	id: string
+	name?: string
+	__namespace?: string
+	__bind?: string
 	toggleSidebar: () => void
 }
 
@@ -27,49 +31,37 @@ const Index = (props: IProps) => {
 		setting,
 		panelNode,
 		setPanelNode,
+		panelEdge,
+		setPanelEdge,
+		execute,
+
 		value,
-		setValue,
+		nodes,
+		setNodes,
 		openPanel,
 		setOpenPanel,
-		setNodes,
-		setUpdateData,
+		showMask,
+		setShowMask,
+
 		running,
-		setRunning
+		setRunning,
+		openSettings,
+		setOpenSettings,
+		openExecute,
+		setOpenExecute,
+		openEdge,
+		setOpenEdge,
+		openPresets,
+		setOpenPresets,
+
+		onPanelChange,
+		fullscreen,
+		setFullscreen
 	} = useBuilderContext()
-	const [openSettings, setOpenSettings] = useState(false)
-	const [openExecute, setOpenExecute] = useState(false)
+
+	const [keywords, setKeywords] = useState<string>('')
+
 	const defaultLabel = is_cn ? '未命名' : 'Untitled'
-
-	const onPanelChange = (id: string, bind: string, value: any) => {
-		if (openSettings) {
-			setValue?.((val) => {
-				if (val?.flow) {
-					val.flow[bind] = value
-				}
-				return { ...val }
-			})
-			return
-		}
-
-		if (openExecute) {
-			setValue?.((val) => {
-				if (val?.execute) {
-					val.execute[bind] = value
-				}
-				return { ...val }
-			})
-			return
-		}
-
-		setNodes((nds) => {
-			const node = nds.find((item) => item.id === id)
-			if (!node) return nds
-			node.data.props[bind] = value
-			return [...nds]
-		})
-
-		setUpdateData((data: any) => ({ id, bind, value }))
-	}
 
 	const hidePanel = () => {
 		setOpenPanel(() => false)
@@ -79,13 +71,18 @@ const Index = (props: IProps) => {
 		if (!open) {
 			setOpenSettings(() => false)
 			setOpenExecute(() => false)
+			setOpenEdge(() => false)
+			setOpenPresets(() => false)
 			setPanelNode(() => undefined)
+			setPanelEdge(() => undefined)
 		}
 	}
 
 	const getType = () => {
 		if (openSettings) return getSetting()
 		if (openExecute) return getExecute()
+		if (openEdge) return getEdge()
+		if (openPresets) return undefined
 
 		const node = panelNode
 		if (!node) return undefined
@@ -105,10 +102,54 @@ const Index = (props: IProps) => {
 		return type
 	}
 
+	const getEdge = () => {
+		if (!openEdge) return undefined
+		if (!setting) return undefined
+		if (!setting.edge) {
+			console.error('setting.edge not found')
+			return undefined
+		}
+
+		setting.edge.forEach((section) => {
+			section?.columns?.forEach((item) => {
+				const component = setting?.fields?.[item.name]
+				if (!component) return console.error('Component not found', item.name)
+				item.component = component
+			})
+		})
+
+		return {
+			icon: 'material-conversion_path',
+			props: setting.edge
+		} as Type
+	}
+
+	const getEdgeName = () => {
+		if (!panelEdge) return { name: defaultLabel }
+		const sourceId = panelEdge?.source
+		const targetId = panelEdge?.target
+		const source = nodes?.find((node) => node.id === sourceId)
+		const target = nodes?.find((node) => node.id === targetId)
+		const sourceProps = source?.data?.props || {}
+		const targetProps = target?.data?.props || {}
+
+		const sourceType = setting?.types?.find((item) => item.name === source?.data.type)
+		const targetType = setting?.types?.find((item) => item.name === target?.data.type)
+
+		const sourceName = sourceProps.label || sourceProps.description || sourceProps.name || sourceType?.name
+		const targetName = targetProps.label || targetProps.description || targetProps.name || targetType?.name
+
+		return {
+			name: is_cn ? '条件设定' : 'Condition Setting',
+			source: { name: sourceName, type: sourceType },
+			target: { name: targetName, type: targetType }
+		}
+	}
+
 	const getSetting = () => {
 		if (!setting) return undefined
 		if (!setting.flow) {
-			console.error('Flow not found')
+			console.error('setting.flow not found')
 			return undefined
 		}
 
@@ -122,7 +163,7 @@ const Index = (props: IProps) => {
 
 		return {
 			name: is_cn ? '设置' : 'Settings',
-			icon: 'icon-settings',
+			icon: 'icon-sliders',
 			props: setting.flow
 		} as Type
 	}
@@ -130,7 +171,7 @@ const Index = (props: IProps) => {
 	const getExecute = () => {
 		if (!setting) return undefined
 		if (!setting.execute) {
-			console.error('Execute not found')
+			console.error('setting.execute not found')
 			return undefined
 		}
 
@@ -152,6 +193,8 @@ const Index = (props: IProps) => {
 	const getLabel = () => {
 		if (openSettings) return is_cn ? '设置' : 'Settings'
 		if (openExecute) return is_cn ? '运行' : 'Execute'
+		if (openPresets) return is_cn ? '插入' : 'Insert'
+		if (openEdge) return getEdgeLabel()
 		return (
 			panelNode?.data?.props?.label ||
 			panelNode?.data?.props?.description ||
@@ -160,53 +203,173 @@ const Index = (props: IProps) => {
 		)
 	}
 
+	function getEdgeLabel() {
+		const edge = getEdgeName()
+		if (!edge) return defaultLabel
+		const size = 12
+
+		let sourceIcon = <Icon name='material-trip_origin' size={size} style={{ marginRight: 2 }} />
+		if (typeof edge.source?.type?.icon === 'string') {
+			sourceIcon = <Icon name={edge.source?.type?.icon} size={size} style={{ marginRight: 2 }} />
+		}
+		if (typeof edge.source?.type?.icon == 'object') {
+			sourceIcon = (
+				<Icon
+					name={edge.source?.type?.icon?.name || 'material-trip_origin'}
+					size={12}
+					style={{ marginRight: 4 }}
+				/>
+			)
+		}
+
+		let targetIcon = <Icon name='material-trip_origin' size={size} style={{ marginRight: 2 }} />
+		if (typeof edge.target?.type?.icon === 'string') {
+			targetIcon = <Icon name={edge.target?.type?.icon} size={size} style={{ marginRight: 2 }} />
+		}
+		if (typeof edge.target?.type?.icon == 'object') {
+			targetIcon = (
+				<Icon
+					name={edge.target?.type?.icon?.name || 'material-trip_origin'}
+					size={size}
+					style={{ marginRight: 4 }}
+				/>
+			)
+		}
+
+		return (
+			<div
+				style={{
+					justifyContent: 'center',
+					justifyItems: 'center',
+					alignItems: 'center',
+					display: 'flex'
+				}}
+			>
+				<span className='mr_8'>{edge.name}</span>
+				{sourceIcon}
+				<span style={{ fontSize: size }}>{edge.source?.name}</span>
+				<Icon name='material-arrow_forward' size={size} style={{ margin: '0 4px' }} />
+				{targetIcon}
+				<span style={{ fontSize: size }}>{edge.target?.name}</span>
+			</div>
+		)
+	}
+
 	const doExecute = () => {
+		if (!execute) return undefined
+		if (value === undefined) return undefined
+
 		setRunning(() => true)
-		setTimeout(() => {
-			setRunning(() => false)
-			message.success(is_cn ? '运行完毕' : 'Run Complete')
-		}, 5000)
-		console.log('doExecute', value)
+		Execute(execute, value, { __namespace: props.__namespace, __bind: props.__bind })
+			.then((res) => {
+				if (res.code != 200) {
+					const msg = res.message || (is_cn ? '运行失败' : 'Run Failed')
+					if (res.errors) {
+						setNodes((nodes) => {
+							return nodes.map((node) => {
+								if (res.errors[node.id]) {
+									node.data.error = res.errors[node.id]
+								}
+								return node
+							})
+						})
+					}
+					message.error(msg)
+					return
+				}
+
+				// Remove Error
+				setNodes((nodes) => {
+					return nodes.map((node) => {
+						node.data.error = undefined
+						return node
+					})
+				})
+
+				// @Todo: Display Result
+				const msg = res.message || (is_cn ? '运行成功' : 'Run Success')
+				message.success(msg)
+			})
+			.catch((err) => {
+				message.error(is_cn ? '运行失败' : 'Run Failed')
+			})
+			.finally(() => {
+				setRunning(() => false)
+			})
 	}
 
 	const getActions = () => {
-		if (!openExecute) return undefined
-		return [
-			<Button
-				key='run'
-				type='primary'
-				loading={running}
-				size='small'
-				onClick={() => doExecute()}
-				style={{ fontSize: 12 }}
-			>
-				<Icon name='icon-play' size={10} style={{ marginRight: 4 }} />
-				{is_cn ? '运行' : 'Run'}
-			</Button>
-		]
+		if (openExecute) {
+			return [
+				<Button
+					key='run'
+					type='primary'
+					loading={running}
+					size='small'
+					onClick={() => doExecute()}
+					style={{ fontSize: 12 }}
+				>
+					<Icon name='icon-play' size={10} style={{ marginRight: 4 }} />
+					{is_cn ? '运行' : 'Run'}
+				</Button>
+			]
+		}
+
+		if (openPresets) {
+			return [<Filter key='filter' onChange={(value) => setKeywords(value)} />]
+		}
+
+		return undefined
 	}
 
 	const getData = () => {
 		if (openSettings) return { ...(value?.flow || {}) }
 		if (openExecute) return { ...(value?.execute || {}) }
+		if (openEdge) {
+			const edge = panelEdge
+			if (!edge) return {}
+			return { ...(edge?.data || {}) }
+		}
+		if (openPresets) return {}
+
 		return { ...(panelNode?.data?.props || {}) }
 	}
 
 	const getID = () => {
 		if (openSettings) return '__settings'
 		if (openExecute) return '__execute'
+		if (openEdge) return panelEdge?.id
+
 		return panelNode?.id
 	}
 
 	const showSettings = () => {
 		setOpenSettings(() => true)
 		setOpenExecute(() => false)
+		setOpenEdge(() => false)
+		setOpenPresets(() => false)
+
+		setShowMask(() => true)
 		setOpenPanel(() => true)
 	}
 
 	const showExecute = () => {
 		setOpenExecute(() => true)
 		setOpenSettings(() => false)
+		setOpenEdge(() => false)
+		setOpenPresets(() => false)
+
+		setShowMask(() => false)
+		setOpenPanel(() => true)
+	}
+
+	const showPresets = () => {
+		setOpenPresets(() => true)
+		setOpenSettings(() => false)
+		setOpenExecute(() => false)
+		setOpenEdge(() => false)
+
+		setShowMask(() => false)
 		setOpenPanel(() => true)
 	}
 
@@ -225,7 +388,10 @@ const Index = (props: IProps) => {
 				fixed={props.fixed}
 				offsetTop={props.offsetTop}
 				width={460}
+				mask={showMask}
 				defaultIcon='material-trip_origin'
+				icon={openPresets ? 'icon-plus-circle' : undefined}
+				children={openPresets ? <Presets keywords={keywords} /> : undefined}
 			/>
 			<div style={{ width: props.width }}>
 				<div className='head'>
@@ -248,17 +414,70 @@ const Index = (props: IProps) => {
 						{props.value?.flow?.label || props.value?.flow?.name || defaultLabel}
 					</div>
 					<div className='actions'>
-						<a style={{ marginRight: 12, marginTop: 2 }} onClick={showExecute}>
-							<Icon name='icon-play' size={14} />
-						</a>
-						<a style={{ marginRight: 6, marginTop: 2 }} onClick={showSettings}>
-							<Icon name='icon-settings' size={14} />
-						</a>
-						<Preset />
+						<Tooltip
+							title={is_cn ? '插入' : 'Insert'}
+							placement={fullscreen ? 'bottom' : 'top'}
+						>
+							<a style={{ marginRight: 24, marginTop: 2 }} onClick={showPresets}>
+								<Icon name='icon-plus-circle' size={16} />
+							</a>
+						</Tooltip>
+						<Tooltip
+							title={is_cn ? '运行' : 'Execute'}
+							placement={fullscreen ? 'bottom' : 'top'}
+						>
+							<a style={{ marginRight: 12, marginTop: 2 }} onClick={showExecute}>
+								<Icon name='icon-play' size={16} />
+							</a>
+						</Tooltip>
+
+						<Tooltip
+							title={is_cn ? '设置' : 'Settings'}
+							placement={fullscreen ? 'bottom' : 'top'}
+						>
+							<a style={{ marginRight: 12, marginTop: 2 }} onClick={showSettings}>
+								<Icon name='icon-sliders' size={16} />
+							</a>
+						</Tooltip>
+
+						{!fullscreen ? (
+							<Tooltip
+								title={is_cn ? '全屏' : 'Full Screen'}
+								placement={fullscreen ? 'bottom' : 'top'}
+							>
+								<a
+									style={{ marginRight: 12, marginTop: 2 }}
+									onClick={() => setFullscreen(true)}
+								>
+									<Icon name='icon-maximize' size={16} />
+								</a>
+							</Tooltip>
+						) : (
+							<Tooltip title={is_cn ? '退出全屏' : 'Exit Full Screen'} placement='bottom'>
+								<a
+									style={{ marginRight: 16, marginTop: 2 }}
+									onClick={() => setFullscreen(false)}
+								>
+									<Icon name='icon-minimize' size={16} />
+								</a>
+							</Tooltip>
+						)}
 					</div>
 				</div>
 
-				<Flow width={props.width} height={props.height} value={props.value} />
+				<Flow
+					width={props.width}
+					height={props.height}
+					value={props.value}
+					name={props.name}
+					__namespace={props.__namespace}
+					__bind={props.__bind}
+					onClick={(event) => {
+						if (openPanel) {
+							setOpenPanel(() => false)
+						}
+					}}
+				/>
 			</div>
 		</>
 	)

@@ -1,33 +1,25 @@
-import Preset from '@/components/edit/FormBuilder/components/Preset'
-import { Icon } from '@/widgets'
-import { Button } from 'antd'
-
-import styles from './index.less'
 import clsx from 'clsx'
-import ReactFlow, {
-	Background,
-	Controls,
-	EdgeTypes,
-	MarkerType,
-	ReactFlowInstance,
-	ReactFlowProvider,
-	addEdge,
-	useReactFlow,
-	Node as ReactFlowNode
-} from 'reactflow'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import ReactFlow, { Background, Controls, EdgeTypes, ReactFlowInstance, ReactFlowProvider } from 'reactflow'
+import { useCallback, useRef, useState } from 'react'
 import CustomEdge from './Edge'
 
-import 'reactflow/dist/style.css'
 import CustomNode from './Node'
-import { FlowValue } from '../../types'
+import { FlowNode, FlowValue, PresetItem } from '../../types'
 import { useBuilderContext } from '../Builder/Provider'
 
+import 'reactflow/dist/style.css'
+import styles from './index.less'
+import { CreateID } from '../../utils'
+import { message } from 'antd'
 interface IProps {
 	name?: string
 	width: number
 	height: number
 	value?: FlowValue
+	__namespace?: string
+	__bind?: string
+
+	onClick?: (event: any) => void
 }
 
 const edgeTypes: EdgeTypes = {
@@ -39,46 +31,42 @@ const nodeTypes = {
 }
 
 const Flow = (props: IProps) => {
-	const { CreateNode, setHideContextMenu, is_cn, nodes, setNodes, onNodesChange, edges, setEdges, onEdgesChange } =
-		useBuilderContext()
+	const {
+		is_cn,
+		edges,
+		nodes,
+		setNodes,
+		setEdges,
+		EdgeStyle,
+		onNodesChange,
+		onEdgesChange,
+		onSettingEdge,
 
-	const getEdgeStyle = (theme: string) => {
-		let color = 'var(--color_title)'
-		switch (theme) {
-			case 'primary':
-				color = 'var(--color_main)'
-				break
-			case 'success':
-				color = 'var(--color_success)'
-				break
-			case 'warning':
-				color = 'var(--color_warning)'
-				break
-			case 'danger':
-				color = 'var(--color_danger)'
-				break
-		}
-
-		return {
-			style: {
-				strokeWidth: 2,
-				stroke: color
-			},
-			markerEnd: {
-				type: MarkerType.ArrowClosed,
-				width: 12,
-				color: color
-			}
-		}
-	}
-
+		CreateNode,
+		setHideContextMenu,
+		onConnect,
+		onConnectStart,
+		onConnectEnd
+	} = useBuilderContext()
+	const { __namespace, __bind, name } = props
 	const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null)
 	const reactFlowWrapper = useRef(null)
-	const connectingNodeId = useRef(null)
-
 	const onDrop = useCallback(
 		(event: any) => {
 			event.preventDefault()
+			// Preset
+			const preset = event.dataTransfer.getData('application/reactflow/preset')
+			if (preset) {
+				try {
+					const presetObj = JSON.parse(preset)
+					dropPreset(event, presetObj)
+				} catch (error: any) {
+					message.error(' Error: ' + error?.message || 'Unknown error')
+				}
+				return
+			}
+
+			// Type of Node
 			const type = event.dataTransfer.getData('application/reactflow')
 			const position = reactFlowInstance?.screenToFlowPosition({
 				x: event.clientX,
@@ -94,34 +82,58 @@ const Flow = (props: IProps) => {
 		[reactFlowInstance]
 	)
 
+	const dropPreset = (event: any, preset: PresetItem) => {
+		const offset = reactFlowInstance?.screenToFlowPosition({
+			x: event.clientX,
+			y: event.clientY
+		})
+		if (!offset) return
+
+		const nameMappping: { [key: string]: any } = {}
+
+		// Add Nodes to Flow
+		const nodes: any[] = preset.nodes.map((node) => {
+			const newNode = CreateNode(
+				node.type,
+				node.props?.description || node.type,
+				{
+					x: offset.x + node.position.x,
+					y: offset.y + node.position.y
+				},
+				node.props
+			)
+			if (node.props?.name) {
+				nameMappping[node.props?.name] = newNode
+			}
+			return newNode
+		})
+
+		// Add Edges to Flow
+		const edges = preset.edges?.map((edge) => {
+			const source = nameMappping[edge.source]
+			const target = nameMappping[edge.target]
+
+			if (!source || !target) return null
+			const background = source?.data?.background
+			const style = EdgeStyle(background)
+
+			return {
+				id: CreateID(),
+				source: source.id,
+				data: edge.data,
+				...style,
+				target: target.id,
+				type: 'custom'
+			}
+		})
+
+		setNodes((nds) => nds.concat(nodes))
+		if (edges) setEdges((eds) => eds.concat(edges))
+	}
+
 	const onDragOver = useCallback((event: any) => {
 		event.preventDefault()
 		event.dataTransfer.dropEffect = 'move'
-	}, [])
-
-	const onConnect = useCallback((params: any) => {
-		connectingNodeId.current = null
-		let sourceNode: any = null
-		setNodes((nds) => {
-			sourceNode = nds.find((node) => node.id === params.source)
-			return nds
-		})
-
-		// Get the source node
-		if (!sourceNode) {
-			console.error(`[FlowBuilder] Node ${params.source} not found`)
-			return
-		}
-
-		// get source node background color
-		const background = sourceNode?.data?.background
-		setEdges((eds) =>
-			addEdge({ ...params, data: { label: '<条件>' }, type: 'custom', ...getEdgeStyle(background) }, eds)
-		)
-	}, [])
-
-	const onConnectStart = useCallback((_: any, { nodeId }: any) => {
-		connectingNodeId.current = nodeId
 	}, [])
 
 	return (
@@ -130,15 +142,15 @@ const Flow = (props: IProps) => {
 				nodes={nodes}
 				edges={edges}
 				onInit={setReactFlowInstance}
-				onPaneClick={() => {
-					setHideContextMenu && setHideContextMenu(true)
-				}}
+				onPaneClick={() => setHideContextMenu && setHideContextMenu(true)}
 				onNodesChange={onNodesChange}
 				onEdgesChange={onEdgesChange}
 				onDrop={onDrop}
 				onDragOver={onDragOver}
 				onConnect={onConnect}
 				onConnectStart={onConnectStart}
+				onConnectEnd={onConnectEnd}
+				onEdgeClick={(event, edge) => onSettingEdge(edge)}
 				fitView
 				fitViewOptions={{ maxZoom: 1 }}
 				nodeOrigin={[0.5, 0]}
@@ -146,7 +158,7 @@ const Flow = (props: IProps) => {
 				edgeTypes={edgeTypes}
 				nodeTypes={nodeTypes}
 			>
-				<Background gap={[14, 14]} />
+				<Background gap={[14, 14]} id={CreateID()} />
 				<Controls />
 			</ReactFlow>
 		</div>
@@ -154,8 +166,14 @@ const Flow = (props: IProps) => {
 }
 
 const Index = (props: IProps) => {
+	const { removeAttribution } = useBuilderContext()
 	return (
-		<div className={clsx(styles._local)} style={{ height: props.height - 24, width: props.width }}>
+		<div
+			className={clsx(
+				...(removeAttribution ? [styles._local, styles._removeAttribution] : [styles._local])
+			)}
+			style={{ height: props.height - 24, width: props.width }}
+		>
 			<div className='providerflow'>
 				<ReactFlowProvider>
 					<Flow {...props} />

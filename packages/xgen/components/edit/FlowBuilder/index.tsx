@@ -6,16 +6,15 @@ import { useEffect, useRef, useState } from 'react'
 import styles from './index.less'
 import clsx from 'clsx'
 import { Else, If, Then } from 'react-if'
-import { Icon } from '@/widgets'
-import { FlowValue, Setting } from './types'
+import { FlowTab, FlowValue, Setting } from './types'
 import { GetSetting, GetValues, IconName } from './utils'
 import { useGlobal } from '@/context/app'
-import Builder from './components/Builder'
 import { getLocale } from '@umijs/max'
+import Tab from './components/Tab'
 
 interface IFlowBuilderProps {
 	setting?: any
-	presets?: any
+
 	height?: number
 	multiple?: boolean
 
@@ -27,6 +26,8 @@ interface IFlowBuilderProps {
 	namespace?: string
 	type?: string
 	removeAttribution?: boolean
+	execute?: Component.Request
+	presets?: Component.Request
 	onChange?: (v: any) => void
 }
 
@@ -37,20 +38,97 @@ const FlowBuilder = window.$app.memo((props: IProps) => {
 	const is_cn = getLocale() === 'zh-CN'
 	const ref = useRef<HTMLDivElement>(null)
 
+	const { __namespace, __bind } = props
+	const [initialized, setInitialized] = useState<boolean>(false)
+
 	const [loading, setLoading] = useState<boolean>(false)
 	const [setting, setSetting] = useState<Setting | undefined>(undefined)
-	const [flows, setFlows] = useState<any[]>([])
+	const [flowTabs, setFlowTabs] = useState<any[]>([])
 	const [activeFlow, setActiveFlow] = useState<string>('')
+	const [data, setData] = useState<FlowValue[]>(GetValues(props.value))
 
-	// Get the form value
-	const [value, setValue] = useState<any>()
-	useEffect(() => {
-		setValue(props.value)
-	}, [props.value])
+	// When the data is updated in the flow
+	// Update the value of the form
+	// Type is: nodes, edges, flow, execute
+	const onData = (id: string, type: string, value: any) => {
+		// console.log('onData', id, type, value)
+
+		// Update Data
+		setData((data) => {
+			// Find the index of the data
+			const index = data.findIndex((value: FlowValue) => value.id === id)
+			if (index === -1) return data
+
+			switch (type) {
+				case 'nodes':
+					data[index].nodes = value
+					break
+
+				case 'edges':
+					data[index].edges = value
+					break
+
+				case 'flow':
+					data[index].flow = value
+
+					// Update Tab
+					if (props.multiple === true) {
+						setFlowTabs((flowTabs: any) => {
+							const values: FlowValue[] = []
+							flowTabs.forEach((flow: any) => {
+								let updateValue = flow?.value || {}
+								if (updateValue.id === id) {
+									updateValue.flow = value
+								}
+								updateValue && values.push(updateValue)
+							})
+
+							const newFlowTabs = values.map((flowValue: FlowValue, index: number) =>
+								Tab({
+									...props,
+									flowValue,
+									is_cn,
+									index,
+									width,
+									height,
+									isFixed,
+									fullscreen,
+									setFullscreen,
+									offsetTop,
+									showSidebar,
+									setting,
+									onData,
+									toggleSidebar,
+									removeAttribution: props.removeAttribution
+								})
+							)
+
+							return newFlowTabs
+						})
+					}
+
+					break
+
+				case 'execute':
+					data[index].execute = value
+					break
+			}
+
+			return [...data]
+		})
+	}
+
+	// Trigger the onChange event
+	useEffect(() => props.onChange && props.onChange(data), [data])
 
 	// Set the width of the grid layout
 	const offsetTop = 80
 	const [isFixed, setIsFixed] = useState(false)
+	const [fullscreen, _setFullscreen] = useState(false)
+	const setFullscreen = (value: boolean) => {
+		_setFullscreen(() => value)
+	}
+
 	// Fixed sidebar, canvas and toolbar
 	useEffect(() => {
 		const handleScroll = () => {
@@ -89,163 +167,188 @@ const FlowBuilder = window.$app.memo((props: IProps) => {
 		}
 	}, [showSidebar])
 
+	useEffect(() => {
+		if (fullscreen) {
+			setHeight(window.innerHeight - (props.multiple ? 80 : 38))
+			return
+		}
+		setHeight(props.height && props.height >= 300 ? props.height : 300)
+	}, [fullscreen])
+
 	// Toggle the sidebar
 	const toggleSidebar = () => {
 		setShowSidebar(!showSidebar)
-	}
-
-	const TabItemLabel = (props: { text: string; icon: string }) => {
-		return (
-			<div
-				className='flex'
-				style={{
-					alignItems: 'center',
-					justifyContent: 'center',
-					fontSize: 14
-				}}
-			>
-				<Icon size={16} name={props.icon} />
-				<div style={{ marginLeft: 4 }}>{props.text}</div>
-			</div>
-		)
 	}
 
 	const onTabChange = (key: string) => {
 		setActiveFlow(key)
 	}
 
-	const onDataChange = (data: any) => {
-		console.log(data)
-	}
-
 	const onTabEdit = (targetKey: React.MouseEvent | React.KeyboardEvent | string, action: 'add' | 'remove') => {
 		// Add a new tab
 		if (action === 'add') {
-			const newFlow = blankFlow()
-			setFlows([...flows, newFlow])
-			setActiveFlow(newFlow.key)
+			setFlowTabs((flowTabs) => {
+				const newFlowTabs = [...flowTabs, blankFlowTab(flowTabs.length)]
+				setActiveFlow(() => newFlowTabs[newFlowTabs.length - 1].id)
+
+				// Update data
+				setData(() => {
+					const data: FlowValue[] = []
+					newFlowTabs.forEach((flow) => {
+						flow?.value && data.push(flow.value)
+					})
+					return data
+				})
+
+				return newFlowTabs
+			})
 			return
 		}
 
 		// Remove the tab
-		let newActiveKey = activeFlow
-		let lastIndex = -1
-		flows.forEach((flow, i) => {
-			if (flow.key === targetKey) {
-				lastIndex = i - 1
+		setFlowTabs((flowTabs: any) => {
+			let newActiveKey = activeFlow
+			let lastIndex = -1
+			flowTabs.forEach((flow: any, i: number) => {
+				if (flow.id === targetKey) {
+					lastIndex = i - 1
+				}
+			})
+			const newFlows = flowTabs.filter((flow: any) => flow.id !== targetKey)
+			if (newFlows.length === 0) {
+				// Notifies the parent component to remove the component
+				message.error(is_cn ? '至少保留一个流程' : 'At least one flow must be retained')
+				return flowTabs
 			}
-		})
-		const newFlows = flows.filter((flow) => flow.key !== targetKey)
-		if (newFlows.length === 0) {
-			// Notifies the parent component to remove the component
-			message.error(is_cn ? '至少保留一个流程' : 'At least one flow must be retained')
-			return
-		}
-		if (newFlows.length && newActiveKey === targetKey) {
-			if (lastIndex >= 0) {
-				newActiveKey = newFlows[lastIndex].key
-			} else {
-				newActiveKey = newFlows[0].key
-			}
-		}
 
-		setFlows([...newFlows])
-		setActiveFlow(newActiveKey)
+			if (newFlows.length && newActiveKey === targetKey) {
+				if (lastIndex >= 0) {
+					newActiveKey = newFlows[lastIndex].key
+				} else {
+					newActiveKey = newFlows[0].key
+				}
+			}
+
+			// Update data
+			setData(() => {
+				const data: FlowValue[] = []
+				newFlows.forEach((flow: any) => {
+					flow?.value && data.push(flow.value)
+				})
+				return data
+			})
+
+			setActiveFlow(() => newActiveKey)
+			return newFlows
+		})
 	}
 
 	const cardType = props.multiple === true ? 'editable-card' : 'card'
 	const hideTabs = props.multiple === true ? '' : 'hideTabs'
 
-	// Convert value to flow
-	const valueToFlow = (value: FlowValue, index: number) => {
-		const text = is_cn ? '<未命名>' : '<Untitled>'
-		const flow = value.flow || { name: text, label: text }
-		const key = `${flow.name || flow.label || text}-${index}`
-		return {
-			label: <TabItemLabel text={flow.label || flow.name || ''} icon={IconName(flow.icon)} />,
-			value: value,
-			key: key,
-			children: (
-				<Builder
-					width={width}
-					height={height}
-					fixed={isFixed}
-					offsetTop={offsetTop}
-					showSidebar={showSidebar}
-					setting={setting}
-					value={{ ...value, key: key }}
-					toggleSidebar={toggleSidebar}
-					onDataChange={onDataChange}
-				/>
-			)
-		}
+	const blankFlowTab = (index: number) => {
+		const text = is_cn ? `<未命名-${flowTabs.length + 1}>` : `<Untitled-${flowTabs.length + 1}>`
+		const key = `${__namespace}-${__bind}-blank_${Date.now().toString()}`
+		const flowValue: FlowValue = { flow: { name: text, label: text }, id: key }
+		return Tab({
+			...props,
+			flowValue,
+			is_cn,
+			index,
+			width,
+			height,
+			isFixed,
+			fullscreen,
+			setFullscreen,
+			offsetTop,
+			showSidebar,
+			setting,
+			onData,
+			toggleSidebar,
+			removeAttribution: props.removeAttribution
+		})
 	}
 
-	const blankFlow = () => {
-		const text = is_cn ? `<未命名-${flows.length + 1}>` : `<Untitled-${flows.length + 1}>`
-		const flow: FlowValue = { flow: { name: text, label: text } }
-		const key = `blank-${Date.now().toString()}`
-		return {
-			label: <TabItemLabel text={text} icon={IconName()} />,
-			key: key,
-			value: value,
-			children: (
-				<Builder
-					width={width}
-					height={height}
-					fixed={isFixed}
-					offsetTop={offsetTop}
-					value={flow}
-					showSidebar={showSidebar}
-					setting={setting}
-					toggleSidebar={toggleSidebar}
-					onDataChange={onDataChange}
-				/>
-			)
-		}
-	}
-
-	// Update flows by setting (initialization or setting change)
+	// Update flowTabs by setting (initialization or setting change)
 	const updateFlowsBySetting = (setting?: Setting) => {
 		if (!setting) return
-		const values: FlowValue[] = GetValues(value || setting.defaultValue)
-		const flows = values.map(valueToFlow)
-		flows.length === 0 && flows.push(blankFlow())
-		setFlows([...flows])
+		if (initialized) return
+
+		setInitialized(true)
+		const values: FlowValue[] =
+			GetValues(props.value).length == 0 ? GetValues(setting.defaultValue) : GetValues(props.value)
+		const flowTabs = values.map((flowValue: FlowValue, index: number) =>
+			Tab({
+				...props,
+				flowValue,
+				is_cn,
+				index,
+				width,
+				height,
+				isFixed,
+				fullscreen,
+				setFullscreen,
+				offsetTop,
+				showSidebar,
+				setting,
+				onData,
+				toggleSidebar,
+				removeAttribution: props.removeAttribution
+			})
+		)
+		if (flowTabs.length === 0) {
+			const tab = blankFlowTab(0)
+			flowTabs.push(tab)
+		}
+
+		setFlowTabs(() => [...flowTabs])
+		setData(() => {
+			const data: FlowValue[] = []
+			flowTabs.forEach((flow) => {
+				flow?.value && data.push(flow.value)
+			})
+			return data
+		})
 	}
 
-	// Refresh flows (when the width, height, or sidebar status changes)
+	// Refresh flowTabs (when the width, height, or sidebar status changes)
 	const refreshFlows = () => {
-		const newFlows = flows.map((flow) => {
-			return {
-				...flow,
-				children: (
-					<Builder
-						width={width}
-						height={height}
-						fixed={isFixed}
-						value={{ ...flow.value }}
-						offsetTop={offsetTop}
-						showSidebar={showSidebar}
-						setting={setting}
-						toggleSidebar={toggleSidebar}
-						onDataChange={onDataChange}
-					/>
-				)
-			}
+		setFlowTabs((flowTabs) => {
+			const newFlows: FlowTab[] = []
+			flowTabs.forEach((flow, index) => {
+				const tab = Tab({
+					...props,
+					flowValue: flow.value,
+					is_cn,
+					index,
+					width,
+					height,
+					isFixed,
+					fullscreen,
+					setFullscreen,
+					offsetTop,
+					showSidebar,
+					setting,
+					onData,
+					toggleSidebar,
+					removeAttribution: props.removeAttribution
+				})
+				if (tab) newFlows.push(tab)
+			})
+			return [...newFlows]
 		})
-		setFlows([...newFlows])
 	}
 	useEffect(() => updateFlowsBySetting(setting), [setting])
 	useEffect(() => refreshFlows(), [width, showSidebar, height, isFixed])
 
 	// Get setting
 	useEffect(() => {
-		setLoading(true)
+		if (props.setting === undefined) return
 		if (global.loading) return
 		if (loading) return
 		if (!props.setting) return
 
+		setLoading(true)
 		GetSetting(props.setting)
 			.then((setting) => {
 				setLoading(false)
@@ -254,8 +357,28 @@ const FlowBuilder = window.$app.memo((props: IProps) => {
 			.catch(() => setLoading(false))
 	}, [props.setting])
 
+	// for full screen
+	const fullScreenStyle: React.CSSProperties = {
+		bottom: 0,
+		display: 'flex',
+		height: '100%',
+		left: 0,
+		margin: 0,
+		padding: 0,
+		position: 'fixed',
+		right: 0,
+		top: 0,
+		width: '100%',
+		overflowY: 'auto',
+		zIndex: 1000
+	}
+
 	return (
-		<div className={clsx(styles._local)} ref={ref}>
+		<div
+			className={clsx(fullscreen ? [styles._local, styles._fullscreen] : [styles._local])}
+			ref={ref}
+			style={fullscreen ? fullScreenStyle : {}}
+		>
 			<If condition={loading}>
 				<Then>
 					<div className='loading' style={{ height: height }}>
@@ -264,10 +387,10 @@ const FlowBuilder = window.$app.memo((props: IProps) => {
 				</Then>
 				<Else>
 					<Tabs
-						items={flows}
+						items={flowTabs}
 						className={hideTabs}
 						onChange={onTabChange}
-						activeKey={activeFlow == '' && flows.length > 0 ? flows[0].key : activeFlow}
+						activeKey={activeFlow == '' && flowTabs?.length > 0 ? flowTabs[0].key : activeFlow}
 						type={cardType}
 						onEdit={onTabEdit}
 						style={{ width: '100%' }}
@@ -279,10 +402,10 @@ const FlowBuilder = window.$app.memo((props: IProps) => {
 })
 
 const Index = (props: IProps) => {
-	const { __bind, __name, itemProps, ...rest_props } = props
+	const { __namespace, __bind, __name, itemProps, ...rest_props } = props
 	return (
 		<Item {...itemProps} {...{ __bind, __name }}>
-			<FlowBuilder {...rest_props} {...{ __bind, __name }}></FlowBuilder>
+			<FlowBuilder {...rest_props} {...{ __namespace, __bind, __name }}></FlowBuilder>
 		</Item>
 	)
 }

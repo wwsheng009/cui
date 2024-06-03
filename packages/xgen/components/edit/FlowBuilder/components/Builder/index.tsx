@@ -2,7 +2,7 @@ import { FlowValue, Setting } from '../../types'
 import Sidebar from '../Sidebar'
 import Canvas from '../Canvas'
 import { BuilderProvider } from '../Builder/Provider'
-import { getLocale } from '@umijs/max'
+import { Component } from '@/types'
 
 interface IProps {
 	value?: FlowValue
@@ -11,9 +11,20 @@ interface IProps {
 	showSidebar: boolean
 	setting?: Setting
 	fixed: boolean
+	fullscreen: boolean
+	setFullscreen: (value: boolean) => void
 	offsetTop: number
+	removeAttribution?: boolean
+
+	execute?: Component.Request
+	presets?: Component.Request
 	toggleSidebar: () => void
-	onDataChange?: (data: any) => void
+	onData?: (id: string, type: string, value: any) => void
+
+	id: string
+	name?: string
+	__namespace?: string
+	__bind?: string
 }
 
 const Index = (props: IProps) => {
@@ -21,7 +32,20 @@ const Index = (props: IProps) => {
 	if (!props.setting) return null
 
 	return (
-		<BuilderProvider setting={props.setting} value={props.value}>
+		<BuilderProvider
+			setting={props.setting}
+			value={props.value}
+			onData={props.onData}
+			id={props.id}
+			execute={props.execute}
+			presets={props.presets}
+			name={props.name}
+			__bind={props.__bind}
+			__namespace={props.__namespace}
+			fullscreen={props.fullscreen}
+			setFullscreen={props.setFullscreen}
+			removeAttribution={props.removeAttribution}
+		>
 			<div className='builder'>
 				<Sidebar height={props.height} visible={props.showSidebar} />
 				<Canvas {...props} />

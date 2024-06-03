@@ -1,5 +1,7 @@
 import axios from 'axios'
-import { FlowValue, IconT, Remote, Setting } from './types'
+import { FlowValue, IconT, PresetsQuery, PresetsResult, Remote, Setting } from './types'
+import { Component } from '@/types'
+import { nanoid } from 'nanoid/non-secure'
 
 export const GetSetting = async (setting?: Remote | Setting): Promise<Setting> => {
 	if (setting && 'api' in setting) {
@@ -30,7 +32,49 @@ export const IconSize = (icon?: IconT, defaultSize: number = 14): number => {
 }
 
 export const GetValues = (value?: FlowValue | FlowValue[]): FlowValue[] => {
-	if (value === undefined) return []
+	if (value === undefined || value === null) return []
 	if (Array.isArray(value)) return value
 	return [value]
 }
+
+export const valueToData = (value?: FlowValue | FlowValue[], defaultValue?: FlowValue | FlowValue[]): any => {}
+
+export const Execute = async (
+	remote: Component.Request,
+	value: FlowValue,
+	withs: Record<string, any>
+): Promise<any> => {
+	if (!remote) return Promise.resolve(undefined)
+	const { api, params } = remote
+	try {
+		const res = await axios.request<any>({
+			url: api,
+			method: 'post',
+			params,
+			data: { flow: value, params: { ...params, ...withs } }
+		})
+		return Promise.resolve(res)
+	} catch (err) {
+		console.error('[FlowBuilder] Execute Error ', err)
+		return Promise.reject(err)
+	}
+}
+
+export const GetPresets = async (
+	remote: Component.Request,
+	query: PresetsQuery
+): Promise<PresetsResult | undefined> => {
+	if (!remote) return Promise.resolve(undefined)
+	const { keywords, category, withCategories } = query
+	const { api, params } = remote
+	const data = { params, ...query }
+	try {
+		const res = await axios.post<any, PresetsResult>(api, data)
+		return Promise.resolve(res)
+	} catch (err) {
+		console.error('[FlowBuilder] GetPresets Error ', err)
+		return Promise.reject(err)
+	}
+}
+
+export const CreateID = () => '_' + nanoid() + new Date().valueOf()
