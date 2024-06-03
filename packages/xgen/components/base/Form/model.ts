@@ -10,6 +10,7 @@ import Service from './services'
 
 import type { FormType, TableType, Component, Global } from '@/types'
 import { Dot } from '@/utils'
+import { isNumber } from 'lodash-es'
 
 @injectable()
 export default class Model {
@@ -25,6 +26,7 @@ export default class Model {
 	rendered = false
 	form_name = ''
 	parent_namespace = '' as Component.FormComponent['parentNamespace']
+	onBack = undefined as Component.FormComponent['onBack']
 
 	constructor(
 		private service: Service,
@@ -84,8 +86,14 @@ export default class Model {
 
 		message.success(this.global.locale_messages.messages.table.save.success)
 
-		if (this.parent === 'Modal')
+		if (this.parent === 'Modal') {
 			window.$app.Event.emit(`${this.parent_namespace ?? this.namespace.parent}/search`)
+		}
+
+		// Set id to the response if the id is 0 and the response is a string or number
+		if (this.id === 0 && (typeof res == 'string' || isNumber(res)) && res !== 0) {
+			this.id = res
+		}
 
 		return Promise.resolve(res)
 	}
@@ -134,7 +142,8 @@ export default class Model {
 
 		if (this.id !== 0) this.find()
 
-		this.on(onBack)
+		this.onBack = onBack
+		this.on()
 	}
 
 	refetch() {
@@ -142,21 +151,27 @@ export default class Model {
 		this.find()
 	}
 
-	on(onBack: Component.FormComponent['onBack']) {
+	back() {
+		if (this.parent === 'Modal') {
+			window.$app.Event.emit(`${this.parent_namespace ?? this.namespace.parent}/search`)
+		}
+		this.onBack!()
+	}
+
+	on() {
 		window.$app.Event.on(`${this.namespace.value}/find`, this.find)
 		window.$app.Event.on(`${this.namespace.value}/save`, this.save)
 		window.$app.Event.on(`${this.namespace.value}/delete`, this.delete)
-		window.$app.Event.on(`${this.namespace.value}/back`, onBack!)
+		window.$app.Event.on(`${this.namespace.value}/back`, this.back)
 		window.$app.Event.on(`${this.namespace.value}/refetch`, this.refetch)
 	}
 
-	off(onBack: Component.FormComponent['onBack']) {
+	off() {
 		window.$app.Event.off(`${this.namespace.value}/find`, this.find)
 		window.$app.Event.off(`${this.namespace.value}/save`, this.save)
 		window.$app.Event.off(`${this.namespace.value}/delete`, this.delete)
-		window.$app.Event.off(`${this.namespace.value}/back`, onBack!)
+		window.$app.Event.off(`${this.namespace.value}/back`, this.back)
 		window.$app.Event.off(`${this.namespace.value}/refetch`, this.refetch)
-
 		this.global.stack.remove(this.form_name)
 	}
 }

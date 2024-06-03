@@ -14,7 +14,8 @@ import type { EditorDidMount, monaco } from 'react-monaco-editor'
 interface ICustom {
 	value: string
 	disabled?: boolean
-	language?: 'json' | 'javascript'
+	language?: 'json' | 'javascript' | 'typescript' | 'yaml' | 'html' | 'css' | 'sql' | 'markdown'
+	hideLineNumbers?: boolean
 	height?: number | string
 	onChange?: (v: any) => void
 }
@@ -89,6 +90,7 @@ const Custom = window.$app.memo((props: ICustom) => {
 				padding: { top: 15 },
 				lineNumbersMinChars: 3,
 				minimap: { enabled: false },
+				lineNumbers: props.hideLineNumbers ? 'off' : 'on',
 				scrollbar: { verticalScrollbarSize: 8, horizontalSliderSize: 8, useShadows: false }
 			}}
 			value={value}

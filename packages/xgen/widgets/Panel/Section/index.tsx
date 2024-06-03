@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { TypeProp } from '../../types'
+import { Section } from '../types'
 import Column from '../Column'
 
 interface IProps {
 	id?: string
 	data?: Record<string, any>
-	section: TypeProp
+	section: Section
 	onChange?: (id: string, bind: string, value: any) => void
 }
 
@@ -40,6 +40,7 @@ const Index = (props: IProps) => {
 						...(column.component?.edit.props || {}),
 						__name: label,
 						__bind: bind,
+						__namespace: `${props.id}.${index}.${bind}`,
 						onChange: (value: any) => onChange(props.id, bind, value),
 						value
 					}
