@@ -45,8 +45,8 @@
 		top: 82px;
 		height: auto;
 		display: flex;
-		justify-content: start;
-		align-items: start;
+		justify-content: flex-start;
+		align-items: flex-start;
 		padding: 12px 12px;
 		border-radius: var(--radius);
 		background: var(--color_danger);
@@ -70,10 +70,17 @@
 		padding: 0 8px;
 		height: 24px;
 		display: flex;
-		justify-content: start;
+		justify-content: flex-start;
 		align-items: center;
 		font-size: 12px;
 		border-radius: 24px;
 		background: var(--color_border_soft);
+		cursor: pointer;
+	}
+}
+
+._type:hover {
+	:global {
+		background: var(--color_bg_menu);
 	}
 }

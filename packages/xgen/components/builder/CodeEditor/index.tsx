@@ -14,6 +14,7 @@ import { EditorDidMount, monaco } from 'react-monaco-editor'
 import yaml from 'js-yaml'
 import { message } from 'antd'
 import { getLocale } from '@umijs/max'
+import { toJS } from 'mobx'
 
 interface ICustom {
 	value: string
@@ -36,10 +37,14 @@ const Custom = window.$app.memo((props: IProps) => {
 	const theme = useMemo(() => (global.theme === 'dark' ? 'x-dark' : 'x-light'), [global.theme])
 	const [namespace, setNamespace] = useState(props.__namespace)
 	const is_cn = getLocale() === 'zh-CN'
+	const key = `builder.${props.__namespace}.${props.__bind}`
+	const { dataCache } = global
 
 	useEffect(() => setNamespace(props.__namespace), [props.__namespace])
 	useEffect(() => {
 		setShowPlaceholder(!props.value)
+		if (dataCache[key] === props.value) return
+
 		if (typeof props.value !== 'string' && props.value !== undefined && props.value !== null) {
 			// YAML stringify
 			if (language === 'yaml') {
@@ -75,6 +80,7 @@ const Custom = window.$app.memo((props: IProps) => {
 	const onChange = (v: any) => {
 		if (!props.onChange) return
 		props.onChange(v)
+		dataCache[key] = v
 	}
 
 	const editorDidMount: EditorDidMount = (editor, monaco) => {
@@ -99,6 +105,17 @@ const Custom = window.$app.memo((props: IProps) => {
 		})
 
 		monaco.editor.setTheme(theme)
+
+		editor.onDidChangeModelContent(() => {
+			const position = editor.getPosition()
+			if (position && editor.getModel()?.getValue() != '') {
+				editor.setPosition(position)
+			}
+		})
+	}
+
+	const editorWillUnmount = () => {
+		dataCache[key] && delete dataCache[key]
 	}
 
 	return (
@@ -137,6 +154,7 @@ const Custom = window.$app.memo((props: IProps) => {
 				value={value}
 				onChange={onChange}
 				editorDidMount={editorDidMount}
+				editorWillUnmount={editorWillUnmount}
 			/>
 		</div>
 	)

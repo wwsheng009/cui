@@ -3,6 +3,7 @@ import Sidebar from '../Sidebar'
 import Canvas from '../Canvas'
 import { BuilderProvider } from '../Builder/Provider'
 import { Component } from '@/types'
+import { Dispatch, SetStateAction } from 'react'
 
 interface IProps {
 	value?: FlowValue
@@ -20,6 +21,9 @@ interface IProps {
 	presets?: Component.Request
 	toggleSidebar: () => void
 	onData?: (id: string, type: string, value: any) => void
+
+	showMask: boolean
+	setShowMask: Dispatch<SetStateAction<boolean>>
 
 	id: string
 	name?: string
@@ -45,9 +49,15 @@ const Index = (props: IProps) => {
 			fullscreen={props.fullscreen}
 			setFullscreen={props.setFullscreen}
 			removeAttribution={props.removeAttribution}
+			showMask={props.showMask}
+			setShowMask={props.setShowMask}
 		>
 			<div className='builder'>
-				<Sidebar height={props.height} visible={props.showSidebar} />
+				<Sidebar
+					height={props.height}
+					visible={props.showSidebar}
+					toggleSidebar={props.toggleSidebar}
+				/>
 				<Canvas {...props} />
 			</div>
 		</BuilderProvider>

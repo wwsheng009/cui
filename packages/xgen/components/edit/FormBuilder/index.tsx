@@ -9,25 +9,23 @@ import { useEffect, useRef, useState } from 'react'
 import 'react-grid-layout/css/styles.css'
 import styles from './index.less'
 import clsx from 'clsx'
-import { Data, Presets, Remote, Setting } from './types'
+import { Data, Setting } from './types'
 import Sidebar from './components/Sidebar'
 import Canvas from './components/Canvas'
 import { Else, If, Then } from 'react-if'
 import { GetSetting } from './utils'
 import { useGlobal } from '@/context/app'
-import Ruler from './components/Ruler'
 
 interface IFormBuilderProps {
-	setting?: Remote | Setting
-	presets?: Remote | Presets
+	setting?: Component.Request
+	presets?: Component.Request
 	height?: number
 
-	value: any
+	value?: Data
 	disabled?: boolean
 
 	label?: string
 	bind?: string
-	namespace?: string
 	type?: string
 	onChange?: (v: any) => void
 }
@@ -37,13 +35,15 @@ interface IProps extends Component.PropsEditComponent, IFormBuilderProps {}
 const FormBuilder = window.$app.memo((props: IProps) => {
 	const [width, setWidth] = useState(0)
 	const [height, setHeight] = useState(props.height && props.height >= 300 ? props.height : 300)
+	const [contentHeight, setContentHeight] = useState(props.height && props.height >= 300 ? props.height : 300)
 	const [isFixed, setIsFixed] = useState(false)
-	const [value, setValue] = useState<any>()
+	const [value, setValue] = useState<Data | undefined>()
 	const [data, setData] = useState<Data>()
 	const [loading, setLoading] = useState<boolean>(false)
 	const [setting, setSetting] = useState<Setting | undefined>(undefined)
 	const [showSidebar, setShowSidebar] = useState<boolean>(true)
 	const [fullscreen, setFullscreen] = useState<boolean>(false)
+	const [mask, setMask] = useState(true)
 
 	const ref = useRef<HTMLDivElement>(null)
 	const global = useGlobal()
@@ -58,7 +58,6 @@ const FormBuilder = window.$app.memo((props: IProps) => {
 		const handleScroll = () => {
 			const top = ref.current?.getBoundingClientRect().top || 0
 			const height = ref.current?.offsetHeight || 0
-			// console.log(top, height, top + height)
 			if (top <= offsetTop && top + height > offsetTop) {
 				setIsFixed(true)
 			} else {
@@ -72,13 +71,17 @@ const FormBuilder = window.$app.memo((props: IProps) => {
 		}
 	}, [])
 
-	const widthPadding = 24
+	const widthPadding = 0
 	useEffect(() => {
-		const offsetWidth = showSidebar ? 200 + widthPadding : widthPadding
+		let offsetWidth = showSidebar ? 200 + widthPadding : widthPadding
+		if (!mask) {
+			offsetWidth = offsetWidth + 420
+		}
 		const observer = new ResizeObserver((entries) => {
 			for (let entry of entries) {
 				if (entry.target === ref.current) {
-					setWidth(ref.current.offsetWidth - offsetWidth)
+					const w = ref.current.offsetWidth - offsetWidth
+					setWidth(w > 0 ? w : 200)
 				}
 			}
 		})
@@ -88,7 +91,7 @@ const FormBuilder = window.$app.memo((props: IProps) => {
 		return () => {
 			observer.disconnect()
 		}
-	}, [showSidebar])
+	}, [showSidebar, mask])
 
 	useEffect(() => {
 		const observer = new ResizeObserver((entries) => {
@@ -108,7 +111,7 @@ const FormBuilder = window.$app.memo((props: IProps) => {
 
 	useEffect(() => {
 		if (fullscreen) {
-			setHeight(window.innerHeight - 38)
+			setHeight(window.innerHeight - 64)
 			return
 		}
 		setHeight(props.height && props.height >= 300 ? props.height : 300)
@@ -116,26 +119,20 @@ const FormBuilder = window.$app.memo((props: IProps) => {
 
 	useEffect(() => {
 		if (!props.value) return
-		if (!props.value.columns) return
-		setValue(props.value?.columns || [])
+		setValue(props.value)
 		setData(props.value)
 	}, [props.value])
 
+	// Update value
 	useEffect(() => {
 		if (!data) return
 		props.onChange && props.onChange(data)
 	}, [data])
 
 	// Canvas setting
-	const onCanvasChange = (value: any, height: number) => {
-		height = height + 24
-		const h = height > (props.height || 300) ? height : props.height || 300
-		setHeight(h)
-		setData((data: any) => {
-			const newData = { ...data }
-			newData.columns = value
-			return newData
-		})
+	const onCanvasChange = (value: Data, height: number) => {
+		setContentHeight(height)
+		setData(() => value)
 	}
 
 	// Get setting
@@ -157,7 +154,7 @@ const FormBuilder = window.$app.memo((props: IProps) => {
 	const fullScreenStyle: React.CSSProperties = {
 		bottom: 0,
 		display: 'flex',
-		height: '100%',
+		height: '100vh',
 		left: 0,
 		margin: 0,
 		padding: 0,
@@ -165,7 +162,7 @@ const FormBuilder = window.$app.memo((props: IProps) => {
 		right: 0,
 		top: 0,
 		width: '100%',
-		overflowY: 'auto',
+		overflowY: 'hidden',
 		zIndex: 1000
 	}
 
@@ -183,7 +180,8 @@ const FormBuilder = window.$app.memo((props: IProps) => {
 						height={height}
 						offsetTop={offsetTop}
 						fixed={isFixed}
-						showSidebar={showSidebar}
+						visible={showSidebar}
+						toggleSidebar={toggleSidebar}
 						fullscreen={fullscreen}
 					/>
 					<Canvas
@@ -191,6 +189,7 @@ const FormBuilder = window.$app.memo((props: IProps) => {
 						fixed={isFixed}
 						width={width}
 						height={height}
+						contentHeight={contentHeight}
 						setting={setting}
 						presets={props.presets}
 						onChange={onCanvasChange}
@@ -199,6 +198,10 @@ const FormBuilder = window.$app.memo((props: IProps) => {
 						setFullscreen={setFullscreen}
 						showSidebar={showSidebar}
 						toggleSidebar={toggleSidebar}
+						mask={mask}
+						setMask={setMask}
+						__namespace={props.__namespace}
+						__bind={props.__bind}
 					/>
 				</Else>
 			</If>
@@ -207,10 +210,10 @@ const FormBuilder = window.$app.memo((props: IProps) => {
 })
 
 const Index = (props: IProps) => {
-	const { __bind, __name, itemProps, ...rest_props } = props
+	const { __bind, __namespace, __name, itemProps, ...rest_props } = props
 	return (
 		<Item {...itemProps} {...{ __bind, __name }}>
-			<FormBuilder {...rest_props} {...{ __bind, __name }}></FormBuilder>
+			<FormBuilder {...rest_props} {...{ __bind, __namespace, __name }}></FormBuilder>
 		</Item>
 	)
 }

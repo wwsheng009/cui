@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { Field, Layout, Presets, Remote, Setting, Type } from './types'
+import { nanoid } from 'nanoid'
 
 export const GetSetting = async (setting?: Remote | Setting): Promise<Setting> => {
 	if (setting && 'api' in setting) {
@@ -65,7 +66,11 @@ export const TypeMappping = (setting: Setting): Record<string, Type> => {
 	return mapping
 }
 
-export const LayoutToValue = (layout: Layout[], mapping: Record<string, Field>, layoutWidth: number = 12): Field[] => {
+export const LayoutToColumns = (
+	layout: Layout[],
+	mapping: Record<string, Field>,
+	layoutWidth: number = 12
+): Field[] => {
 	const value: Field[] = []
 	const lines: Layout[][] = []
 	layout.forEach((item) => {
@@ -129,14 +134,15 @@ export const LayoutToValue = (layout: Layout[], mapping: Record<string, Field>, 
 
 export const ValueToLayout = (
 	value?: Field[],
-	defaultValue?: Field[]
+	defaultValue?: Field[],
+	offsets?: { x: number; y: number }
 ): { layout: Layout[]; mapping: Record<string, Field> } => {
 	if (Array.isArray(value)) {
-		return _valueToLayout(value)
+		return _valueToLayout(value, offsets)
 	}
 
 	if (Array.isArray(defaultValue)) {
-		return _valueToLayout(defaultValue)
+		return _valueToLayout(defaultValue, offsets)
 	}
 
 	return { layout: [], mapping: {} }
@@ -158,21 +164,21 @@ export const UpdatePosition = (mapping: Record<string, Field>, layout: Layout[])
 }
 
 export const GenerateID = (): string => {
-	const timestamp: number = new Date().getTime()
-	const random: number = Math.floor(Math.random() * 10000)
-	const uniqueId: string = `${timestamp}${random}`
-	return uniqueId
+	return '_' + nanoid() + new Date().valueOf()
 }
 
-const _valueToLayout = (value?: Field[]): { layout: Layout[]; mapping: Record<string, Field> } => {
+const _valueToLayout = (
+	value?: Field[],
+	offsets?: { x: number; y: number }
+): { layout: Layout[]; mapping: Record<string, Field> } => {
 	if (!Array.isArray(value)) {
 		return { layout: [], mapping: {} }
 	}
 	const mapping: Record<string, Field> = {}
 	const layout: Layout[] = []
 
-	let cols = 0
-	let y = 0
+	let cols = 0 + (offsets?.x || 0)
+	let y = 0 + (offsets?.y || 0)
 	value.map((item, index) => {
 		if (!item) return false
 		const id = item.id || GenerateID()

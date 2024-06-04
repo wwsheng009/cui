@@ -1,19 +1,16 @@
-import { Icon, Panel } from '@/widgets'
+import { Icon, Panel, PanelPresets as Presets, PanelFilter as Filter } from '@/widgets'
 import Flow from '../Flow'
 import { FlowValue, Type } from '../../types'
 import { Execute, IconName, IconSize } from '../../utils'
 import { useBuilderContext } from '../Builder/Provider'
 
 import { Button, Tooltip, message } from 'antd'
-import Presets from '../Presets'
-import { useState } from 'react'
-import Filter from '../Presets/Filter'
+import { useEffect, useState } from 'react'
 
 interface IProps {
 	width: number
 	height: number
 	value?: FlowValue
-	showSidebar: boolean
 	fixed: boolean
 	offsetTop: number
 
@@ -21,7 +18,6 @@ interface IProps {
 	name?: string
 	__namespace?: string
 	__bind?: string
-	toggleSidebar: () => void
 }
 
 const Index = (props: IProps) => {
@@ -34,10 +30,12 @@ const Index = (props: IProps) => {
 		panelEdge,
 		setPanelEdge,
 		execute,
+		presets,
 
 		value,
 		nodes,
 		setNodes,
+		setEdges,
 		openPanel,
 		setOpenPanel,
 		showMask,
@@ -65,6 +63,29 @@ const Index = (props: IProps) => {
 
 	const hidePanel = () => {
 		setOpenPanel(() => false)
+		setShowMask(() => true)
+
+		if (panelNode) {
+			setNodes((nodes) => {
+				return nodes.map((node) => {
+					if (node.id === panelNode.id) {
+						node.selected = false
+					}
+					return node
+				})
+			})
+		}
+
+		if (panelEdge) {
+			setEdges((edges) => {
+				return edges.map((edge) => {
+					if (edge.id === panelEdge.id) {
+						edge.selected = false
+					}
+					return edge
+				})
+			})
+		}
 	}
 
 	const afterOpenChange = (open: boolean) => {
@@ -391,21 +412,21 @@ const Index = (props: IProps) => {
 				mask={showMask}
 				defaultIcon='material-trip_origin'
 				icon={openPresets ? 'icon-plus-circle' : undefined}
-				children={openPresets ? <Presets keywords={keywords} /> : undefined}
+				children={
+					openPresets ? (
+						<Presets
+							keywords={keywords}
+							transfer='application/reactflow/preset'
+							__namespace={props.__namespace}
+							__bind={props.__bind}
+							presets={presets}
+						/>
+					) : undefined
+				}
 			/>
-			<div style={{ width: props.width }}>
+			<div className='title-bar' style={{ width: props.width }}>
 				<div className='head'>
-					<div className='title'>
-						<a
-							onClick={props.toggleSidebar}
-							style={{ marginRight: 6 }}
-							className='flex align_center'
-						>
-							<Icon
-								name={props.showSidebar ? 'material-first_page' : 'material-last_page'}
-								size={18}
-							/>
-						</a>
+					<div className='title' onClick={showSettings}>
 						<Icon
 							name={IconName(props.value?.flow?.icon)}
 							size={IconSize(props.value?.flow?.icon)}
@@ -418,7 +439,7 @@ const Index = (props: IProps) => {
 							title={is_cn ? '插入' : 'Insert'}
 							placement={fullscreen ? 'bottom' : 'top'}
 						>
-							<a style={{ marginRight: 24, marginTop: 2 }} onClick={showPresets}>
+							<a style={{ marginRight: 12, marginTop: 2 }} onClick={showPresets}>
 								<Icon name='icon-plus-circle' size={16} />
 							</a>
 						</Tooltip>
@@ -455,7 +476,7 @@ const Index = (props: IProps) => {
 						) : (
 							<Tooltip title={is_cn ? '退出全屏' : 'Exit Full Screen'} placement='bottom'>
 								<a
-									style={{ marginRight: 16, marginTop: 2 }}
+									style={{ marginRight: 12, marginTop: 2 }}
 									onClick={() => setFullscreen(false)}
 								>
 									<Icon name='icon-minimize' size={16} />
