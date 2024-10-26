@@ -3,69 +3,35 @@
 
 	&.image {
 		:global {
+			@min_width: 90px;
+			@min_height: 90px;
+			@width: 90px;
+			@height: 90px;
+
 			.form_item_upload_wrap {
 				padding-top: 11px;
 				padding-left: 10px;
-
-				&.custom {
-					@image_size: unset;
-					@min_image_size: 83px;
-
-					.xgen-upload-select-picture-card {
-						min-width: @min_image_size;
-						min-height: @min_image_size;
-						width: @image_size;
-						height: @image_size;
-					}
-
-					.xgen-upload-list-picture-card-container {
-						min-width: @min_image_size;
-						min-height: @min_image_size;
-						width: @image_size;
-						height: @image_size;
-					}
-				}
-
-				@image_size: 83px;
+				padding-right: 10px;
 
 				.xgen-upload-select-picture-card {
-					width: @image_size;
-					height: @image_size;
-                              display: inline-flex;
-                              align-items: center;
-                              justify-content: center;
+					min-height: @min_height;
+					min-width: @min_width;
+					width: auto;
+					height: auto;
+					display: inline-flex;
+					align-items: center;
+					justify-content: center;
 				}
 
 				.xgen-upload-list-picture-card-container {
-					width: @image_size;
-					height: @image_size;
-				}
-			}
-		}
-	}
-
-	&.file {
-		:global {
-			.form_item_upload_wrap {
-				display: flex;
-				flex-direction: column-reverse;
-				border-radius: 6px;
-				background-color: var(--color_bg_nav);
-
-				.xgen-upload-list-text-container {
-					.xgen-upload-list-item {
-						margin: 0;
-						height: 36px;
-
-						.xgen-upload-list-item-info {
-							padding: 0 9px;
-							border-radius: 6px;
-						}
+					min-height: @min_height;
+					min-width: @min_width;
+					width: auto;
+					height: auto;
+					.image {
+						max-width: 100%;
+						object-fit: cover;
 					}
-				}
-
-				.btn_upload_wrap {
-					padding: 0 9px;
 				}
 			}
 		}
@@ -73,60 +39,181 @@
 
 	&.video {
 		:global {
+			@min_width: 288px;
+			@min_height: 162px;
+			@width: 288px;
+			@height: 162px;
+
 			.form_item_upload_wrap {
-				.xgen-upload-select-picture-card,
+				padding-top: 11px;
+				padding-left: 10px;
+				padding-right: 10px;
+
+				.xgen-upload-select-picture-card {
+					min-height: @min_height;
+					min-width: @min_width;
+					width: auto;
+					height: auto;
+					display: inline-flex;
+					align-items: center;
+					justify-content: center;
+				}
+
 				.xgen-upload-list-picture-card-container {
-					width: 300px;
-					height: 160px;
+					min-height: @min_height;
+					min-width: @min_width;
+					width: auto;
+					height: auto;
+					.image {
+						max-width: 100%;
+						object-fit: cover;
+					}
+				}
+			}
+		}
+	}
+
+	&.file,
+	&.audio {
+		:global {
+			@min_width: 288px;
+			@min_height: 60px;
+			@width: 288px;
+			@height: 60px;
+			.form_item_upload_wrap {
+				padding-top: 11px;
+				padding-left: 10px;
+				padding-right: 10px;
+
+				.xgen-upload-select-picture-card {
+					min-height: @min_height;
+					min-width: @min_width;
+					width: auto;
+					height: auto;
+					display: inline-flex;
+					align-items: center;
+					justify-content: center;
+				}
+
+				.xgen-upload-list-picture-card-container {
+					min-height: @min_height;
+					min-width: @min_width;
+					width: auto;
+					height: auto;
+					.image {
+						max-width: 100%;
+						object-fit: cover;
+					}
 				}
 			}
 		}
 	}
 
 	:global {
-            .upload_custom_wrap {
-                  &:hover {
-                        .icon_delete {
-                              display: flex;
-                        }
-                  }
+		.upload_custom_wrap {
+			.toolbar {
+				position: absolute;
+				display: none;
+				right: 0px;
+				bottom: -40px;
+				align-items: center;
+				justify-content: end;
+				height: 40px;
+				padding: 0 6px;
+				width: auto;
+				color: var(--color_title);
+				background: var(--color_bg_nav);
+				border-bottom-right-radius: 6px;
+				border-bottom-left-radius: 6px;
 
-                  .video {
-                        width: 100%;
-                        height: 160px;
-                        border-radius: 6px;
+				.toolbar-button {
+					cursor: pointer;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					color: var(--color_title);
+					width: 30px;
+					height: 40px;
 
-                        object-fit: fill;
-                  }
+					&:hover {
+						color: var(--color_main);
+						transform: scale(1.05);
+						transition: transform 0.2s ease-in;
+					}
+				}
+			}
 
-                  .icon_delete {
-                        right: -1px;
-                        bottom: -1px;
-                        z-index: 1;
-                        display: none;
-                        width: 27px;
-                        height: 27px;
-                        border-top-left-radius: 6px;
-                        border-bottom-right-radius: 6px;
-                        background-color: white;
-                        color: black;
-                        cursor: pointer;
+			&:hover {
+				.icon_delete {
+					display: flex;
+				}
 
-                        &:hover {
-                              background-color: var(--color_danger);
+				.icon_preview {
+					display: flex;
+				}
+			}
 
-                              .icon {
-                                    color: white;
-                              }
-                        }
+			.video {
+				width: 100%;
+				height: 160px;
+				border-radius: 6px;
+				object-fit: fill;
+			}
 
-                        .icon {
-                              color: var(--color_danger);
-                              font-size: 15px;
-                        }
-                  }
-            }
-            
+			.icon_preview {
+				left: calc(50% - 13.5px);
+				top: calc(50% - 13.5px);
+				z-index: 1;
+				display: none;
+				width: 27px;
+				height: 27px;
+				border-radius: 6px;
+				background-color: white;
+				color: black;
+				cursor: pointer;
+
+				&:hover {
+					background-color: var(--color_title);
+
+					.icon {
+						color: white;
+					}
+				}
+
+				.icon {
+					color: var(--color_title);
+					font-size: 15px;
+				}
+			}
+
+			.icon_delete {
+				right: -1px;
+				bottom: -1px;
+				z-index: 1;
+				display: none;
+				width: 27px;
+				height: 27px;
+				border-top-left-radius: 6px;
+				border-bottom-right-radius: 6px;
+				background-color: white;
+				color: black;
+				cursor: pointer;
+
+				&:hover {
+					background-color: var(--color_danger);
+
+					.icon {
+						color: white;
+					}
+				}
+
+				.icon {
+					color: var(--color_danger);
+					font-size: 15px;
+				}
+			}
+		}
+
 		.xgen-upload.xgen-upload-select-picture-card {
 			margin-right: 11px;
 			margin-bottom: 11px;
@@ -141,29 +228,29 @@
 			.btn_upload_wrap {
 				display: flex;
 				flex-direction: column;
-
-				&.file {
-					align-items: center;
-					flex-direction: row;
-
-					&.has_data {
-						margin-bottom: 12px;
-					}
-
-					.desc {
-						margin-top: 0;
-						margin-left: 9px;
-					}
-				}
-
-				&.one_file {
-					justify-content: center;
-					height: 150px;
-				}
+				color: var(--color_placeholder);
 
 				.desc {
 					margin-top: 6px;
+					font-size: 12px;
 				}
+
+				&.file,
+				&.audio {
+					.desc {
+						margin-left: 6px;
+						margin-top: 0px;
+					}
+
+					margin-top: 0;
+					align-items: center;
+					flex-direction: row;
+					align-items: center;
+				}
+			}
+
+			.btn_upload_wrap:hover {
+				color: var(--color_title);
 			}
 
 			.xgen-upload-list-picture .xgen-upload-list-item,
@@ -182,7 +269,6 @@
 			.xgen-upload-list-picture-card .xgen-upload-list-item-thumbnail,
 			.xgen-upload-list-picture-card .xgen-upload-list-item-thumbnail img {
 				opacity: 1;
-
 				object-fit: cover;
 			}
 		}
