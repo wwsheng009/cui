@@ -14,7 +14,6 @@ import UploadBtn from './components/UploadBtn'
 import filemap from './filemap'
 import useList from './hooks/useList'
 import useVisibleBtn from './hooks/useVisibleBtn'
-import styles from './index.less'
 import { ExportValue } from './utils/handleFileList'
 import { getLocale } from '@umijs/max'
 import { LocalRequest, S3Request } from './request'
@@ -22,8 +21,8 @@ import type { UploadFile, UploadProps } from 'antd'
 import type { IProps, CustomProps, IPropsUploadBtn, PreviewProps, AllowedFileType } from './types'
 import { IRequest, UploadError } from './request/types'
 import { useState } from 'react'
-import to from 'await-to-js'
-import { abort } from 'process'
+
+import styles from './index.less'
 
 const Custom = window.$app.memo((props: CustomProps) => {
 	const locale = getLocale()
@@ -166,7 +165,12 @@ const Custom = window.$app.memo((props: CustomProps) => {
 	}
 
 	return (
-		<div className={clsx([styles._local, styles[filetype]], maxCount && maxCount > 1 && 'multiple')}>
+		<div
+			className={clsx(
+				[styles['xgen-edit-upload'], styles[filetype], 'xgen-edit-upload'],
+				maxCount && maxCount > 1 && 'multiple'
+			)}
+		>
 			<Upload {...props_upload}>{visible_btn && <UploadBtn {...props_upload_btn}></UploadBtn>}</Upload>
 		</div>
 	)
@@ -211,8 +215,7 @@ const fmtSize = (size: PreviewProps['size'], filetype: AllowedFileType): Preview
 }
 
 const Index = (props: IProps) => {
-	const { __bind, __name, itemProps, ...rest_props } = props
-
+	const { __bind, __name, __shadow, itemProps, ...rest_props } = props
 	return (
 		<Item {...itemProps} {...{ __bind, __name }}>
 			<Custom {...rest_props}></Custom>
