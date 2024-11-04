@@ -35,6 +35,7 @@ const Custom = window.$app.memo((props: CustomProps) => {
 		chunkSize,
 		previewURL,
 		useAppRoot,
+		__shadow,
 		onChange: trigger
 	} = props
 
@@ -166,10 +167,12 @@ const Custom = window.$app.memo((props: CustomProps) => {
 
 	return (
 		<div
-			className={clsx(
-				[styles['xgen-edit-upload'], styles[filetype], 'xgen-edit-upload'],
-				maxCount && maxCount > 1 && 'multiple'
-			)}
+			className={clsx([
+				__shadow ? 'xgen-edit-upload' : styles['xgen-edit-upload'],
+				__shadow ? filetype : styles[filetype],
+				maxCount && maxCount > 1 && 'multiple',
+				__shadow
+			])}
 		>
 			<Upload {...props_upload}>{visible_btn && <UploadBtn {...props_upload_btn}></UploadBtn>}</Upload>
 		</div>
@@ -215,7 +218,7 @@ const fmtSize = (size: PreviewProps['size'], filetype: AllowedFileType): Preview
 }
 
 const Index = (props: IProps) => {
-	const { __bind, __name, __shadow, itemProps, ...rest_props } = props
+	const { __bind, __name, itemProps, ...rest_props } = props
 	return (
 		<Item {...itemProps} {...{ __bind, __name }}>
 			<Custom {...rest_props}></Custom>
