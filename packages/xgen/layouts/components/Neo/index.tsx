@@ -45,7 +45,7 @@ const Index = (props: IPropsNeo) => {
 	const { messages, cmd, commands, loading, setMessages, stop, exitCmd } = useEventStream({ api, studio })
 	const is_cn = locale === 'zh-CN'
 
-	useKeyPress('enter', () => submit())
+	useKeyPress('enter', (event) => !event.shiftKey && submit())
 
 	useEffect(() => {
 		local.neo_max = max
@@ -156,7 +156,7 @@ const Index = (props: IPropsNeo) => {
 		return (
 			<div
 				className={clsx('border_box', styles.commands)}
-				style={{ width: `calc(${max ? 900 : 360}px - 9px * 2)`, maxHeight: max ? 720 : 360 }}
+				style={{ width: `calc(${max ? '80vw' : '360px'} - 9px * 2)`, maxHeight: max ? 720 : 360 }}
 			>
 				{(search_commands.length ? search_commands : commands).map((item) => (
 					<div
@@ -201,7 +201,7 @@ const Index = (props: IPropsNeo) => {
 					visible
 						? {
 								opacity: 1,
-								width: max ? 900 : 360,
+								width: max ? '80vw' : '360px',
 								height: max
 									? 'min(1200px,calc(100vh - 30px - 48px - 18px - 60px))'
 									: 480
@@ -217,7 +217,7 @@ const Index = (props: IPropsNeo) => {
 								{cmd?.name && (
 									<div className='title flex flex_column'>
 										<span className='cmd_title'>
-											{is_cn ? '命令模式：' : 'Command mode:'}
+											{is_cn ? '命令模式：' : 'Command Mode:'}
 										</span>
 										<span className='cmd_name'>{cmd?.name}</span>
 									</div>
@@ -225,11 +225,9 @@ const Index = (props: IPropsNeo) => {
 								{field.name && (
 									<div className='title flex flex_column'>
 										<span className='cmd_title'>
-											{is_cn ? '字段模式：' : 'Field mode:'}
+											{is_cn ? 'AI 输入模式：' : 'AI Input Mode:'}
 										</span>
-										<span className='cmd_name'>
-											{field.name}-{field.bind}
-										</span>
+										<span className='cmd_name'>{field.name || field.bind}</span>
 									</div>
 								)}
 								<span className='btn_exit_cmd cursor_point' onClick={exit}>
@@ -295,7 +293,7 @@ const Index = (props: IPropsNeo) => {
 								className={clsx('input_chat flex align_center', resized && 'resized')}
 								placeholder={placeholder}
 								ref={textarea}
-								autoSize
+								autoSize={{ maxRows: 12 }}
 								value={value}
 								onChange={onChange}
 								onResize={({ height }) => setResized(height > 38)}
