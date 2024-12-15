@@ -71,9 +71,10 @@ export interface IPropsMenu {
 }
 
 export interface IPropsNeo {
-	stack: string
-	api: string
+	stack?: string
+	api?: string
 	studio?: boolean
+	dock?: 'right-bottom' | 'right-top' | 'right'
 }
 
 export interface IPropsNeoChatItem {
@@ -89,6 +90,11 @@ export interface IPropsContainer {
 	menu_layout: '1-column' | '2-columns'
 	show_name?: boolean
 	hide_nav?: boolean
+	sidebar_min_width?: number
+	sidebar_max_width?: number
+	sidebar_hidden?: boolean
+	sidebar_visible?: boolean
+	sidebar_content?: React.ReactNode
 }
 
 export interface IPropsSettingModalContent {

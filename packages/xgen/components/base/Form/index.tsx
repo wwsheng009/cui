@@ -18,6 +18,7 @@ import Model from './model'
 import type { Component } from '@/types'
 import type { IPropsPureForm } from '@/components/base/PureForm/types'
 import type { IPropsBreadcrumb, IPropsAnchor } from './types'
+import { Bind, Dot } from '@/utils'
 
 const Index = (props: Component.FormComponent) => {
 	const { parent, parentNamespace, model, id, form, onBack } = props
@@ -30,15 +31,22 @@ const Index = (props: Component.FormComponent) => {
 
 	const title = useMemo(() => {
 		if (x.setting?.config?.viewTitle && x.type === 'view') {
-			return x.setting.config.viewTitle
+			return Bind(x.setting.config.viewTitle, x.data) || x.setting.config.viewTitle
 		}
 
 		if (x.setting?.config?.editTitle && x.type === 'edit') {
-			return x.setting.config.editTitle
+			return Bind(x.setting.config.editTitle, x.data) || x.setting.config.editTitle
 		}
 
 		return page_title_prefix + x.setting.name
-	}, [page_title_prefix, x.setting.name, x.type, x.setting?.config?.viewTitle, x.setting?.config?.editTitle])
+	}, [
+		page_title_prefix,
+		x.setting.name,
+		x.type,
+		x.setting?.config?.viewTitle,
+		x.setting?.config?.editTitle,
+		x.data
+	])
 
 	const onFormBack = useMemoizedFn(() => {
 		if (onBack) {
