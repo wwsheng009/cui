@@ -1,7 +1,19 @@
 import type { Action, Common } from '@/types'
 
 export declare namespace App {
+	/**
+	 * Layout type 布局类型
+	 * - Chat: AI Chat Interface (AI 对话界面)
+	 *   Button text: "Chat" / "对话"
+	 * - Admin: Admin Dashboard (管理后台)
+	 *   Button text: "Admin" / "后台"
+	 */
+	type Layout = 'Chat' | 'Admin'
+
 	type Theme = 'light' | 'dark'
+
+	/** Global Neo Context */
+	type Neo = { assistant_id?: string; chat_id?: string }
 
 	type ChatMessageType =
 		| 'text'
@@ -47,10 +59,22 @@ export declare namespace App {
 			field?: Omit<Field, 'config'>
 			config?: Common.FieldDetail
 			signal?: ChatContext['signal']
+			chat_id?: string
+			assistant_id?: string
 		}
 	}
 
 	type ChatInfo = ChatHuman | ChatAI
+
+	/** Chat detail with history */
+	interface ChatDetail {
+		chat: Record<string, any>
+		history: Array<{
+			role: string
+			content: string
+			[key: string]: any
+		}>
+	}
 
 	type ChatHistory = {
 		command?: ChatCmd
@@ -209,21 +233,39 @@ export declare namespace App {
 	}
 
 	interface Menus {
-		items: Array<App.Menu>
-		setting: Array<App.Menu>
+		items: Array<App.Menu> // Main menu
+		setting: Array<App.Menu> // Setting menu
+		quick: Array<App.Menu> // Quick menu
 	}
 
 	interface ChatAttachment {
 		name: string
 		type: string
 		url?: string
-		thumbUrl?: string
 		status?: 'uploading' | 'done' | 'error'
 		file_id?: string
 		bytes?: number
 		created_at?: number
 		filename?: string
 		content_type?: string
+		chat_id?: string
+		assistant_id?: string
+		thumbUrl?: string
 		blob?: Blob
+		pinned?: boolean
+	}
+
+	/** Options for creating a new chat */
+	interface NewChatOptions {
+		content?: string
+		attachments?: ChatAttachment[]
+	}
+
+	// Add Mention interface near the top with other basic types
+	interface Mention {
+		id: string
+		name: string
+		avatar?: string
+		type?: string
 	}
 }

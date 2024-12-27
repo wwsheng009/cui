@@ -6,12 +6,17 @@ import to from 'await-to-js'
 import axios from 'axios'
 import ntry from 'nice-try'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { message } from 'antd'
+import { message as message_ } from 'antd'
 import { RcFile } from 'antd/es/upload'
+import { getLocale } from '@umijs/max'
 
 type Args = {
+	/** the assistant id to use for the chat **/
+	assistant_id?: string
+
 	/** The Chat ID **/
 	chat_id?: string
+
 	/** Upload options **/
 	upload_options?: {
 		process_image?: boolean
@@ -34,6 +39,7 @@ export const formatFileName = (fileName: string, maxLength: number = 30) => {
 
 // Update allowed file types - only keep specific document types
 const ALLOWED_FILE_TYPES = {
+	'application/json': 'json',
 	'application/pdf': 'pdf',
 	'application/msword': 'doc',
 	'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
@@ -61,16 +67,59 @@ const CODE_FILE_TYPES: Record<string, string> = {
 	'.tsx': 'text/typescript',
 	'.vue': 'text/x-vue',
 	'.sh': 'text/x-sh',
-	'.yao': 'text/x-yao'
+	'.yao': 'text/x-yao',
+	'.mdx': 'text/markdown',
+	'.yml': 'text/x-yaml',
+	'.yaml': 'text/x-yaml'
 }
 
-export default ({ chat_id, upload_options = {} }: Args) => {
+// Add these type definitions near the top of the file
+type ChatFilter = {
+	keywords?: string
+	page?: number
+	pagesize?: number
+	order?: 'desc' | 'asc'
+}
+
+export interface ChatItem {
+	chat_id: string
+	title: string | null
+}
+
+export interface ChatGroup {
+	label: string
+	chats: ChatItem[]
+}
+
+export interface ChatResponse {
+	groups: ChatGroup[]
+	page: number
+	pagesize: number
+	total: number
+	last_page: number
+}
+
+// Add these types near the top of the file
+type GenerateOptions = {
+	useSSE?: boolean // Whether to use Server-Sent Events
+	onProgress?: (text: string) => void // Callback for SSE progress updates
+	onComplete?: (finalText: string) => void | Promise<void>
+}
+
+export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 	const event_source = useRef<EventSource>()
 	const [messages, setMessages] = useState<Array<App.ChatInfo>>([])
+	const [title, setTitle] = useState<string>('')
 	const [loading, setLoading] = useState(false)
 	const [attachments, setAttachments] = useState<App.ChatAttachment[]>([])
 	const uploadControllers = useRef<Map<string, AbortController>>(new Map())
 	const global = useGlobal()
+
+	const locale = getLocale()
+	const is_cn = locale === 'zh-CN'
+
+	// Add new state for title generation loading
+	const [titleGenerating, setTitleGenerating] = useState(false)
 
 	/** Get Neo API **/
 	const neo_api = useMemo(() => {
@@ -80,19 +129,77 @@ export default ({ chat_id, upload_options = {} }: Args) => {
 		return `/api/${window.$app.api_prefix}${api}`
 	}, [global.app_info.optional?.neo?.api])
 
+	/** Format chat message **/
+	const formatMessage = useMemoizedFn((role: string, content: string, chatId: string) => {
+		const baseMessage = { is_neo: role === 'assistant', context: { chat_id: chatId, assistant_id } }
+
+		// Check if content is potentially JSON
+		const trimmedContent = content.trim()
+		if (!trimmedContent.startsWith('{')) {
+			return { ...baseMessage, text: content }
+		}
+
+		try {
+			const parsedContent = JSON.parse(trimmedContent)
+			return { ...baseMessage, ...parsedContent }
+		} catch (e) {
+			return { ...baseMessage, text: content }
+		}
+	})
+
 	/** Get AI Chat History **/
 	const getHistory = useMemoizedFn(async () => {
 		if (!chat_id) return
 
-		const endpoint = `${neo_api}/history?token=${encodeURIComponent(getToken())}&chat_id=${chat_id}`
+		const endpoint = `${neo_api}/history?token=${encodeURIComponent(getToken())}&chat_id=${chat_id}${
+			assistant_id ? `&assistant_id=${assistant_id}` : ''
+		}`
 		const [err, res] = await to<App.ChatHistory>(axios.get(endpoint))
 		if (err) return
 		if (!res?.data) return
-		setMessages(res.data.map(({ role, content }) => ({ is_neo: role === 'assistant', text: content })))
+
+		setMessages(res.data.map(({ role, content }) => formatMessage(role, content, chat_id)))
+	})
+
+	/** Handle title generation with progress updates **/
+	const handleTitleGeneration = useMemoizedFn(async (messages: App.ChatInfo[], chatId: string) => {
+		if (!chatId) return
+
+		setTitleGenerating(true)
+
+		try {
+			let generatedTitle = ''
+
+			await generateTitle(JSON.stringify(messages), {
+				useSSE: true,
+				onProgress: (title) => {
+					setTitle(title)
+					generatedTitle = title // Keep track of final title
+				},
+				onComplete: async (finalTitle) => {
+					// Use the final complete title
+					generatedTitle = finalTitle
+					setTitle(finalTitle)
+
+					// Update the chat with the generated title
+					try {
+						await updateChat(chatId, finalTitle)
+					} catch (err) {
+						console.error('Failed to update chat title:', err)
+						message_.error(is_cn ? '更新标题失败' : 'Failed to update chat title')
+					}
+				}
+			})
+		} catch (err) {
+			console.error('Failed to generate title:', err)
+			message_.error(is_cn ? '生成标题失败' : 'Failed to generate title')
+		} finally {
+			setTitleGenerating(false)
+		}
 	})
 
 	/** Get AI Chat Data **/
-	const getData = useMemoizedFn((message: App.ChatHuman) => {
+	const getData = useMemoizedFn(async (message: App.ChatHuman) => {
 		setLoading(true)
 
 		const content: { text: string; attachments?: App.ChatAttachment[] } = { text: message.text }
@@ -108,8 +215,9 @@ export default ({ chat_id, upload_options = {} }: Args) => {
 					content_type: attachment.content_type,
 					bytes: attachment.bytes,
 					created_at: attachment.created_at,
-					filename: attachment.filename,
-					file_id: attachment.file_id
+					file_id: attachment.file_id,
+					chat_id: attachment.chat_id,
+					assistant_id: attachment.assistant_id
 				})
 			})
 		}
@@ -117,42 +225,23 @@ export default ({ chat_id, upload_options = {} }: Args) => {
 		const contentRaw = encodeURIComponent(JSON.stringify(content))
 		const contextRaw = encodeURIComponent(JSON.stringify(message.context))
 		const token = getToken()
-		const status_endpoint = `${neo_api}/status?content=${contentRaw}&context=${contextRaw}&token=${token}&chat_id=${chat_id}`
-		const endpoint = `${neo_api}?content=${contentRaw}&context=${contextRaw}&token=${token}&chat_id=${chat_id}`
+		const assistantParam = assistant_id ? `&assistant_id=${assistant_id}` : ''
 
-		// First check if the endpoint is accessible
-		fetch(status_endpoint, { credentials: 'include', headers: { Accept: 'application/json' } })
-			.then((response) => {
-				if (!response.ok) {
-					return response
-						.json()
-						.catch(() => {
-							throw new Error(`HTTP ${response.status}`)
-						})
-						.then((data) => {
-							if (data?.code && data?.message) {
-								throw new Error(data.message, { cause: { isApiError: true } })
-							}
-							throw new Error(`HTTP ${response.status}`)
-						})
-				}
-				// If response is ok, proceed with EventSource
-				setupEventSource()
+		const status_endpoint = `${neo_api}/status?content=${contentRaw}&context=${contextRaw}&token=${token}&chat_id=${chat_id}${assistantParam}`
+		const endpoint = `${neo_api}?content=${contentRaw}&context=${contextRaw}&token=${token}&chat_id=${chat_id}${assistantParam}`
 
-				// Clear attachments after successful request
-				attachments.forEach((attachment) => {
-					if (attachment.thumbUrl) {
-						URL.revokeObjectURL(attachment.thumbUrl)
-					}
+		const handleError = async (error: any) => {
+			// Check status endpoint for detailed error information
+			try {
+				const response = await fetch(status_endpoint, {
+					credentials: 'include',
+					headers: { Accept: 'application/json' }
 				})
-				setAttachments([])
-			})
-			.catch((error) => {
-				let errorMessage = 'Network error, please try again later'
+				const data = await response.json().catch(() => ({ message: `HTTP ${response.status}` }))
 
-				if (error.cause?.isApiError) {
-					// Use the error message directly from API
-					errorMessage = error.message
+				let errorMessage = 'Network error, please try again later'
+				if (data?.message) {
+					errorMessage = data.message
 				} else if (error.message.includes('401')) {
 					errorMessage = 'Session expired: Please login again'
 				} else if (error.message.includes('403')) {
@@ -173,15 +262,43 @@ export default ({ chat_id, upload_options = {} }: Args) => {
 						is_neo: true
 					}
 				])
-				setLoading(false)
-			})
+			} catch (statusError) {
+				// If status check fails, show generic error
+				setMessages((prevMessages) => [
+					...prevMessages,
+					{
+						text: 'Service unavailable, please try again later',
+						type: 'error',
+						is_neo: true
+					}
+				])
+			}
+			setLoading(false)
+		}
 
-		const setupEventSource = () => {
+		const cleanupAttachments = () => {
+			// Only cleanup non-pinned attachments
+			attachments.forEach((attachment) => {
+				if (!attachment.pinned && attachment.thumbUrl) {
+					URL.revokeObjectURL(attachment.thumbUrl)
+				}
+			})
+			// Keep pinned attachments, remove others
+			setAttachments(attachments.filter((att) => att.pinned))
+		}
+
+		// Directly try to establish EventSource connection
+		setupEventSource()
+
+		// Clean up attachments after request
+		cleanupAttachments()
+
+		function setupEventSource() {
 			// Close existing connection if any
 			event_source.current?.close()
 
 			const es = new EventSource(endpoint, {
-				withCredentials: true // Enable credentials for EventSource
+				withCredentials: true
 			})
 			event_source.current = es
 
@@ -200,6 +317,12 @@ export default ({ chat_id, upload_options = {} }: Args) => {
 					if (type) {
 						current_answer.type = type
 					}
+
+					// If is the first message, generate title using SSE
+					if (messages.length === 2 && chat_id && current_answer.text) {
+						handleTitleGeneration(messages, chat_id)
+					}
+
 					current_answer.actions = actions
 					setMessages([...messages])
 					setLoading(false)
@@ -221,16 +344,7 @@ export default ({ chat_id, upload_options = {} }: Args) => {
 			}
 
 			es.onerror = (ev) => {
-				const message_new = [
-					...messages,
-					{
-						text: 'Connection lost. Please check your network and try again.',
-						type: 'error',
-						is_neo: true
-					}
-				]
-				setMessages(message_new)
-				setLoading(false)
+				handleError(ev)
 				es.close()
 			}
 		}
@@ -241,11 +355,6 @@ export default ({ chat_id, upload_options = {} }: Args) => {
 		setLoading(false)
 		event_source.current?.close()
 	})
-
-	useAsyncEffect(async () => {
-		if (!neo_api) return
-		getHistory()
-	}, [neo_api])
 
 	/** Get AI Chat Data **/
 	useEffect(() => {
@@ -286,27 +395,10 @@ export default ({ chat_id, upload_options = {} }: Args) => {
 			throw new Error(`File size cannot exceed ${options.max_file_size}MB`)
 		}
 
-		// Update isValidType to include .yao in code extensions
+		// Update isValidType to use CODE_FILE_TYPES
 		const isValidType = (fileType: string, fileName: string) => {
 			// Check for code file extensions
-			const codeExtensions = [
-				'.js',
-				'.ts',
-				'.go',
-				'.py',
-				'.java',
-				'.c',
-				'.cpp',
-				'.rb',
-				'.php',
-				'.swift',
-				'.rs',
-				'.jsx',
-				'.tsx',
-				'.vue',
-				'.sh',
-				'.yao'
-			]
+			const codeExtensions = Object.keys(CODE_FILE_TYPES)
 			if (codeExtensions.some((ext) => fileName.toLowerCase().endsWith(ext))) {
 				return true
 			}
@@ -344,7 +436,9 @@ export default ({ chat_id, upload_options = {} }: Args) => {
 			formData.append(`option_${key}`, String(value))
 		}
 
-		const endpoint = `${neo_api}/upload?token=${encodeURIComponent(getToken())}&chat_id=${chat_id}`
+		const endpoint = `${neo_api}/upload?token=${encodeURIComponent(getToken())}&chat_id=${chat_id}${
+			assistant_id ? `&assistant_id=${assistant_id}` : ''
+		}`
 
 		try {
 			const response = await fetch(endpoint, {
@@ -363,19 +457,75 @@ export default ({ chat_id, upload_options = {} }: Args) => {
 
 			const result = await response.json()
 			return {
-				...result,
 				url: result.filename,
-				content_type: result.content_type || file.type
+				...result,
+				content_type: result.content_type || file.type,
+				chat_id: chat_id,
+				assistant_id: assistant_id
 			}
 		} catch (error: any) {
 			uploadControllers.current.delete(file.name)
 			if (error.name === 'AbortError') {
 				throw new Error('Upload cancelled')
 			}
-			message.error(error.message || 'Failed to upload file')
+			message_.error(error.message || 'Failed to upload file')
 			throw error
 		}
 	})
+
+	/** Download file from Neo API **/
+	const downloadFile = useMemoizedFn(
+		async (file_id: string, disposition: 'inline' | 'attachment' = 'attachment') => {
+			if (!neo_api) {
+				throw new Error('Neo API endpoint not configured')
+			}
+
+			if (!chat_id) {
+				throw new Error('Chat ID is required')
+			}
+
+			const endpoint = `${neo_api}/download?file_id=${encodeURIComponent(
+				file_id
+			)}&token=${encodeURIComponent(getToken())}&chat_id=${chat_id}&disposition=${disposition}${
+				assistant_id ? `&assistant_id=${assistant_id}` : ''
+			}`
+
+			try {
+				const response = await fetch(endpoint, {
+					credentials: 'include'
+				})
+
+				if (!response.ok) {
+					const error = await response.json().catch(() => ({ message: `HTTP ${response.status}` }))
+					throw new Error(error.message || `Failed to download file: ${response.statusText}`)
+				}
+
+				// Get filename from Content-Disposition header if present
+				const contentDisposition = response.headers.get('Content-Disposition')
+				const filename = contentDisposition
+					? contentDisposition.split('filename=')[1]?.replace(/["']/g, '')
+					: file_id
+
+				// Create blob from response
+				const blob = await response.blob()
+
+				// Create download link and trigger download
+				const url = window.URL.createObjectURL(blob)
+				const link = document.createElement('a')
+				link.href = url
+				link.download = filename
+				document.body.appendChild(link)
+				link.click()
+				document.body.removeChild(link)
+				window.URL.revokeObjectURL(url)
+
+				return { success: true }
+			} catch (error: any) {
+				message_.error(error.message || 'Failed to download file')
+				throw error
+			}
+		}
+	)
 
 	/** Add/Update attachment **/
 	const addAttachment = useMemoizedFn((attachment: App.ChatAttachment) => {
@@ -404,17 +554,308 @@ export default ({ chat_id, upload_options = {} }: Args) => {
 		}
 	})
 
+	/** Get All Chats **/
+	const getChats = useMemoizedFn(async (filter?: ChatFilter) => {
+		if (!neo_api) return { groups: [], page: 1, pagesize: 10, total: 0, last_page: 1 }
+
+		const params = new URLSearchParams()
+		params.append('token', getToken())
+
+		// Add filter parameters if provided
+		if (filter) {
+			if (filter.keywords) params.append('keywords', filter.keywords)
+			if (filter.page) params.append('page', filter.page.toString())
+			if (filter.pagesize) params.append('pagesize', filter.pagesize.toString())
+			if (filter.order) params.append('order', filter.order)
+		}
+
+		const endpoint = `${neo_api}/chats?${params.toString()}`
+		const [err, res] = await to<{ data: ChatResponse }>(axios.get(endpoint))
+		if (err) throw err
+
+		// Return the complete response data with pagination info
+		return {
+			groups: res?.data?.groups || [],
+			page: res?.data?.page || 1,
+			pagesize: res?.data?.pagesize || 10,
+			total: res?.data?.total || 0,
+			last_page: res?.data?.last_page || 1
+		}
+	})
+
+	/** Get Single Chat **/
+	const getChat = useMemoizedFn(async (id?: string) => {
+		if (!neo_api) return
+
+		const chatId = id || chat_id
+		if (!chatId) return null
+
+		const endpoint = `${neo_api}/chats/${chatId}?token=${encodeURIComponent(getToken())}`
+
+		const [err, res] = await to<{ data: App.ChatDetail }>(axios.get(endpoint))
+		if (err) {
+			message_.error('Failed to fetch chat details')
+			return
+		}
+
+		if (!res?.data) return null
+
+		const chatInfo = res.data
+		const formattedMessages = chatInfo.history.map(({ role, content }) => formatMessage(role, content, chatId))
+
+		// Set messages directly in getChat
+		setMessages(formattedMessages)
+		setTitle(chatInfo.chat.title || (is_cn ? '未命名' : 'Untitled'))
+
+		return {
+			messages: formattedMessages,
+			title: chatInfo.chat.title || (is_cn ? '未命名' : 'Untitled')
+		}
+	})
+
+	/** Update Chat **/
+	const updateChatByContent = useMemoizedFn(async (id: string, content: string) => {
+		if (!neo_api) return
+
+		const endpoint = `${neo_api}/chats/${id}?token=${encodeURIComponent(getToken())}`
+
+		const [err, res] = await to<{ title?: string; message?: string; code?: number }>(
+			axios.post(endpoint, { content })
+		)
+		if (err) {
+			message_.error('Failed to update chat')
+			return false
+		}
+
+		const { title, message: msg, code } = res || {}
+		if (code && code >= 400) {
+			message_.error(msg || 'Failed to update chat')
+			return false
+		}
+
+		setTitle(title || '')
+		return true
+	})
+
+	/** Update Chat **/
+	const updateChat = useMemoizedFn(async (chatId: string, title: string) => {
+		if (!neo_api) return false
+		const endpoint = `${neo_api}/chats/${chatId}?token=${encodeURIComponent(getToken())}`
+		const [err] = await to(axios.post(endpoint, { title }))
+		if (err) throw err
+		return true
+	})
+
+	/** Delete Chat **/
+	const deleteChat = useMemoizedFn(async (chatId: string) => {
+		if (!neo_api) return false
+		const endpoint = `${neo_api}/chats/${chatId}?token=${encodeURIComponent(getToken())}`
+		const [err] = await to(axios.delete(endpoint))
+		if (err) throw err
+		return true
+	})
+
+	/** Delete All Chats **/
+	const deleteAllChats = useMemoizedFn(async () => {
+		if (!neo_api) return false
+		const endpoint = `${neo_api}/dangerous/clear_chats?token=${encodeURIComponent(getToken())}`
+		const [err] = await to(axios.delete(endpoint))
+		if (err) throw err
+		return true
+	})
+
+	/** Get Mentions **/
+	const getMentions = useMemoizedFn(async (keywords: string) => {
+		if (!neo_api) return []
+
+		const params = new URLSearchParams()
+		params.append('token', getToken())
+		if (keywords) {
+			params.append('keywords', keywords)
+		}
+
+		const endpoint = `${neo_api}/mentions?${params.toString()}`
+		const [err, res] = await to<{ data: App.Mention[] }>(axios.get(endpoint))
+		if (err) throw err
+
+		return res?.data || []
+	})
+
+	/** Generate with AI **/
+	const generate = useMemoizedFn(
+		async (content: string, type: string, systemPrompt: string, options: GenerateOptions = {}) => {
+			if (!neo_api) return ''
+
+			const endpoint = `${neo_api}/generate?token=${encodeURIComponent(getToken())}&chat_id=${chat_id}${
+				assistant_id ? `&assistant_id=${assistant_id}` : ''
+			}`
+
+			if (options.useSSE) {
+				return new Promise<string>((resolve, reject) => {
+					const es = new EventSource(endpoint, { withCredentials: true })
+					let result = ''
+
+					es.onmessage = ({ data }) => {
+						const response = ntry(() => JSON.parse(data))
+						if (!response) return
+
+						// Handle error response
+						if (response.type === 'error') {
+							es.close()
+							reject(new Error(response.text))
+							return
+						}
+
+						const { text, done } = response
+						if (text) {
+							result += text
+							options.onProgress?.(result)
+						}
+						if (done) {
+							es.close()
+							options.onComplete?.(result)
+							resolve(result)
+						}
+					}
+
+					es.onerror = (err) => {
+						es.close()
+						reject(err)
+					}
+				})
+			}
+
+			// Regular HTTP request
+			const [err, res] = await to(axios.post(endpoint, { content, type, system_prompt: systemPrompt }))
+			if (err) throw err
+			return res?.data?.result || ''
+		}
+	)
+
+	/** Generate title **/
+	const generateTitle = useMemoizedFn(async (content: string, options: GenerateOptions = {}) => {
+		if (!neo_api) return ''
+
+		const endpoint = `${neo_api}/generate/title?token=${encodeURIComponent(getToken())}&chat_id=${chat_id}${
+			assistant_id ? `&assistant_id=${assistant_id}` : ''
+		}&content=${encodeURIComponent(content)}`
+
+		if (options.useSSE) {
+			return new Promise<string>((resolve, reject) => {
+				const es = new EventSource(endpoint, { withCredentials: true })
+				let result = ''
+
+				es.onmessage = ({ data }) => {
+					const response = ntry(() => JSON.parse(data))
+					if (!response) return
+
+					// Handle error response
+					if (response.type === 'error') {
+						es.close()
+						reject(new Error(response.text))
+						return
+					}
+
+					const { text, done } = response
+					if (text) {
+						result += text
+						options.onProgress?.(result)
+					}
+					if (done) {
+						es.close()
+						options.onComplete?.(result)
+						resolve(result)
+					}
+				}
+
+				es.onerror = (err) => {
+					es.close()
+					reject(err)
+				}
+			})
+		}
+
+		// Regular HTTP request
+		const [err, res] = await to(axios.post(endpoint, { content }))
+		if (err) throw err
+		return res?.data?.result || ''
+	})
+
+	/** Generate prompts **/
+	const generatePrompts = useMemoizedFn(async (content: string, options: GenerateOptions = {}) => {
+		if (!neo_api) return ''
+
+		const endpoint = `${neo_api}/generate/prompts?token=${encodeURIComponent(getToken())}&chat_id=${chat_id}${
+			assistant_id ? `&assistant_id=${assistant_id}` : ''
+		}&content=${encodeURIComponent(content)}`
+
+		if (options.useSSE) {
+			return new Promise<string>((resolve, reject) => {
+				const es = new EventSource(endpoint, { withCredentials: true })
+				let result = ''
+
+				es.onmessage = ({ data }) => {
+					const response = ntry(() => JSON.parse(data))
+					if (!response) return
+
+					// Handle error response
+					if (response.type === 'error') {
+						es.close()
+						reject(new Error(response.text))
+						return
+					}
+
+					const { text, done } = response
+					if (text) {
+						result += text
+						options.onProgress?.(result)
+					}
+					if (done) {
+						es.close()
+						resolve(result)
+					}
+				}
+
+				es.onerror = (err) => {
+					es.close()
+					reject(err)
+				}
+			})
+		}
+
+		// Regular HTTP request
+		const [err, res] = await to(axios.post(endpoint, { content }))
+		if (err) throw err
+		return res?.data?.result || ''
+	})
+
 	return {
 		messages,
 		loading,
 		setMessages,
 		cancel,
 		uploadFile,
+		downloadFile,
 		attachments,
+		setAttachments,
 		addAttachment,
 		removeAttachment,
 		clearAttachments,
 		cancelUpload,
-		formatFileName
+		formatFileName,
+		getHistory,
+		getChats,
+		getChat,
+		updateChat,
+		title,
+		setTitle,
+		deleteChat,
+		deleteAllChats,
+		getMentions,
+		generate,
+		generateTitle,
+		generatePrompts,
+		titleGenerating,
+		setTitleGenerating
 	}
 }

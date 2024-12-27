@@ -13,8 +13,8 @@ import { useMemoizedFn } from 'ahooks'
 import { useGlobal } from '@/context/app'
 import ChatItem from '../ChatItem'
 import { isValidUrl } from '@/utils'
-
-const { TextArea } = Input
+import DefaultHeader from './Header'
+import MentionTextArea from './MentionTextArea'
 
 interface AIChatProps {
 	messages?: App.ChatInfo[]
@@ -23,9 +23,12 @@ interface AIChatProps {
 	title?: string
 	onClose?: () => void
 	onNew?: () => void
+	onSelect?: () => void
 	currentPage?: string
 	showCurrentPage?: boolean
 	botAvatar?: string
+	header?: React.ReactNode
+	headerButtons?: ('new' | 'history' | 'float' | 'close')[]
 	upload_options?: {
 		process_image?: boolean
 		max_file_size?: number
@@ -42,23 +45,29 @@ const AIChat = (props: AIChatProps) => {
 	const is_cn = locale === 'zh-CN'
 	const stack = global.stack.paths.join('/')
 
-	const { onSend, onClose, onNew, className, botAvatar, upload_options } = props
-	const [selectedFiles, setSelectedFiles] = useState<any[]>([])
+	const { onSend, onClose, onNew, className, botAvatar, header, headerButtons, upload_options } = props
 	const [inputValue, setInputValue] = useState('')
 	const messagesEndRef = useRef<HTMLDivElement>(null)
-	const [chat_id, setChatId] = useState('hello')
-	const [title, setTitle] = useState(global.app_info.optional?.neo?.name || 'AI Assistant')
+	const [chat_id, setChatId] = useState(global.neo.chat_id || 'hello')
+	const [assistant_id, setAssistantId] = useState(global.neo.assistant_id)
 	const [currentPage, setCurrentPage] = useState(pathname.replace(/\/_menu.*/gi, '').toLowerCase())
+	const [initialized, setInitialized] = useState(false)
+
 	const {
 		messages,
 		loading,
+		title,
+		setTitle,
 		setMessages,
 		cancel,
 		uploadFile,
 		attachments,
 		removeAttachment,
 		addAttachment,
-		formatFileName
+		formatFileName,
+		setAttachments,
+		getChat,
+		generatePrompts
 	} = useAIChat({ chat_id, upload_options })
 	const [chat_context, setChatContext] = useState<App.ChatContext>({ placeholder: '', signal: '' })
 
@@ -86,7 +95,9 @@ const AIChat = (props: AIChatProps) => {
 					formdata: context.data_item,
 					field: { name: v.name, bind: v.bind },
 					config: v.config,
-					signal: chat_context.signal
+					signal: chat_context.signal,
+					chat_id: chat_id,
+					assistant_id: assistant_id
 				}
 			}
 		])
@@ -98,21 +109,38 @@ const AIChat = (props: AIChatProps) => {
 		data_item: {}
 	})
 
+	// Load chat details when initialized
+	useEffect(() => {
+		const loadChat = async () => {
+			if (!initialized && chat_id) {
+				await getChat()
+				setInitialized(true)
+			}
+		}
+		loadChat()
+	}, [initialized, chat_id])
+
+	const clearRef = useRef<(() => void) | null>(null)
+	const focusRef = useRef<(() => void) | null>(null)
+
 	const handleSend = () => {
 		const message = inputValue.trim()
 		if (message) {
 			// Clear input first
 			setInputValue('')
-			setSelectedFiles([])
+			clearRef.current?.()
 
-			// Then send message
-			onSend?.(message, selectedFiles)
+			// 获取固定的附件
+			const pinnedAttachments = attachments.filter((att) => att.pinned)
+
+			// Then send message with all current attachments
+			onSend?.(message, attachments)
 			setMessages([
 				...messages,
 				{
 					is_neo: false,
-					text: message, // Use saved message instead of inputValue
-					attachments: attachments, // Add attachments to the message
+					text: message,
+					attachments: attachments,
 					context: {
 						namespace: context.namespace,
 						stack: stack || '',
@@ -120,10 +148,15 @@ const AIChat = (props: AIChatProps) => {
 						formdata: context.data_item,
 						field: { name: field.name, bind: field.bind },
 						config: field.config,
-						signal: chat_context.signal
+						signal: chat_context.signal,
+						chat_id: chat_id,
+						assistant_id: assistant_id
 					}
 				}
 			])
+
+			// 在发送后设置附件为固定的附件
+			setAttachments(pinnedAttachments)
 		}
 	}
 
@@ -142,8 +175,8 @@ const AIChat = (props: AIChatProps) => {
 		}, 100)
 	}, [messages])
 
-	const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-		setInputValue(e.target.value)
+	const handleInputChange = (value: string) => {
+		setInputValue(value)
 		requestAnimationFrame(() => scrollToBottom())
 	}
 
@@ -152,17 +185,52 @@ const AIChat = (props: AIChatProps) => {
 		setCurrentPage(pathname.replace(/\/_menu.*/gi, '').toLowerCase())
 	}, [pathname])
 
+	const handleNewChat = (options?: App.NewChatOptions) => {
+		const new_chat_id = `chat_${Date.now()}`
+		setChatId(new_chat_id)
+		setMessages([])
+		setAttachments([])
+		global.setNeoChatId(new_chat_id)
+		setTitle(is_cn ? '未命名' : 'Untitled')
+
+		if (options?.content) {
+			setInputValue(options.content)
+		}
+
+		if (options?.attachments?.length) {
+			options.attachments.forEach((attachment) => {
+				addAttachment(attachment)
+			})
+		}
+
+		// Focus using the new method
+		setTimeout(() => {
+			focusRef.current?.()
+		}, 100)
+
+		onNew?.()
+	}
+
 	/** Register Events **/
 	useLayoutEffect(() => {
 		const events = window.$app.Event
 		events.on('app/getContext', getContext)
 		events.on('app/getField', getField)
 
+		/** Create a new chat */
+		events.on('app/neoNewChat', handleNewChat)
+
 		return () => {
 			events.off('app/getContext', getContext)
 			events.off('app/getField', getField)
+			events.off('app/neoNewChat', handleNewChat)
 		}
 	}, [])
+
+	const handleOnNew = useMemoizedFn(() => {
+		handleNewChat()
+		onNew?.()
+	})
 
 	const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -243,7 +311,7 @@ const AIChat = (props: AIChatProps) => {
 		}
 	}
 
-	const handlePaste = async (e: ClipboardEvent<HTMLTextAreaElement>) => {
+	const handlePaste = async (e: ClipboardEvent<HTMLDivElement>) => {
 		// 处理剪贴板中的文本
 		const text = e.clipboardData?.getData('text')
 		if (text && isValidUrl(text.trim()) && text.trim() === text) {
@@ -317,40 +385,107 @@ const AIChat = (props: AIChatProps) => {
 		}
 	}
 
+	const handleHistorySelect = useMemoizedFn(async (chatId?: string) => {
+		if (!chatId || typeof chatId === undefined) {
+			handleNewChat()
+			return
+		}
+
+		setChatId(chatId)
+		global.setNeoChatId(chatId)
+		setMessages([])
+		setAttachments([])
+		setInitialized(false)
+
+		// Focus using the new method
+		setTimeout(() => {
+			focusRef.current?.()
+		}, 100)
+	})
+
+	const handleOnFloat = useMemoizedFn(() => {
+		// Empty placeholder for now
+	})
+
+	const [optimizing, setOptimizing] = useState(false)
+
+	// Add handleOptimize function
+	const handleOptimize = async () => {
+		if (!inputValue.trim() || loading || optimizing) return
+
+		setOptimizing(true)
+		try {
+			const result = await generatePrompts(inputValue.trim(), {
+				useSSE: true,
+				onProgress: (text) => {
+					// Only update input if text is not an error message
+					if (typeof text === 'string' && text.trim()) {
+						setInputValue(text)
+					}
+				}
+			})
+
+			// Handle error response
+			if (typeof result === 'object' && result.type === 'error') {
+				throw new Error(result.text || 'Optimization failed')
+			}
+		} catch (error: any) {
+			// Handle different error messages
+			let errorMsg = is_cn ? '优化失败' : 'Optimization failed'
+
+			if (error.message === 'content is required') {
+				errorMsg = is_cn ? '请输入内容' : 'Please enter content'
+			} else if (error.message) {
+				errorMsg = error.message
+			}
+
+			message.error(errorMsg)
+		} finally {
+			setOptimizing(false)
+		}
+	}
+
 	return (
 		<div className={clsx(styles.aiChat, className)}>
-			{/* Header */}
-			<div className={styles.header}>
-				<div className={styles.title}>{title}</div>
-				<div className={styles.actions}>
-					<Button
-						type='text'
-						icon={<Icon name='icon-plus' size={20} />}
-						className={styles.actionBtn}
-						onClick={onNew}
-					/>
-					<Button
-						type='text'
-						icon={<Icon name='icon-x' size={20} />}
-						className={styles.actionBtn}
-						onClick={onClose}
-					/>
-				</div>
-			</div>
+			{header || (
+				<DefaultHeader
+					title={title}
+					loading={loading}
+					onNew={handleOnNew}
+					onClose={onClose}
+					onHistory={() => {}}
+					onFloat={handleOnFloat}
+					onSelect={handleHistorySelect}
+					buttons={headerButtons}
+					chatId={chat_id}
+				/>
+			)}
 
 			{/* Chat Messages */}
 			<div className={styles.messages}>
 				<div className={styles.messageWrapper}>
-					{messages.map((msg, index) => (
-						<ChatItem
-							key={index}
-							context={context}
-							field={field}
-							chat_info={msg}
-							callback={() => {}}
-							avatar={msg.is_neo ? botAvatar : undefined}
-						/>
-					))}
+					{!initialized ? (
+						<div className={styles.loadingState}>
+							<Icon
+								name='icon-loader'
+								size={14}
+								color='var(--color_placeholder)'
+								className={styles.spinner}
+							/>
+							<span>{is_cn ? '加载历史消息...' : 'Loading message history...'}</span>
+						</div>
+					) : (
+						messages.map((msg, index) => (
+							<ChatItem
+								key={index}
+								context={context}
+								field={field}
+								chat_info={msg}
+								callback={() => {}}
+								avatar={msg.is_neo ? botAvatar : undefined}
+							/>
+						))
+					)}
 					<div ref={messagesEndRef} />
 				</div>
 			</div>
@@ -385,56 +520,7 @@ const AIChat = (props: AIChatProps) => {
 							<div className={styles.attachmentsArea}>
 								<div className={styles.attachmentsList}>
 									{attachments.map((attachment, index) => (
-										<div
-											key={index}
-											className={clsx(styles.attachmentItem, {
-												[styles.uploading]:
-													attachment.status === 'uploading'
-											})}
-											onClick={() => handleFileClick(attachment)}
-											style={{ cursor: 'pointer' }}
-										>
-											<div className={styles.attachmentThumb}>
-												{attachment.type === 'URL' ? (
-													<div
-														className={
-															styles.attachmentTypeIcon
-														}
-													>
-														<Icon name='icon-link' size={10} />
-													</div>
-												) : attachment.thumbUrl ? (
-													<img
-														src={attachment.thumbUrl}
-														alt={attachment.name}
-													/>
-												) : (
-													<div
-														className={
-															styles.attachmentTypeIcon
-														}
-													>
-														{attachment.type}
-													</div>
-												)}
-												{attachment.status === 'uploading' && (
-													<div className={styles.uploadingOverlay}>
-														<Icon
-															name='icon-loader'
-															size={16}
-															className={styles.spinner}
-														/>
-													</div>
-												)}
-											</div>
-											<div
-												className={styles.attachmentName}
-												title={attachment.name}
-											>
-												{attachment.name.length > 15
-													? `${attachment.name.slice(0, 12)}...`
-													: attachment.name}
-											</div>
+										<div key={index} className={clsx(styles.attachmentItem)}>
 											<div
 												className={styles.deleteBtn}
 												onClick={(e) => {
@@ -442,7 +528,95 @@ const AIChat = (props: AIChatProps) => {
 													removeAttachment(attachment)
 												}}
 											>
-												<Icon name='icon-x' size={12} />
+												<Icon name='material-close' size={12} />
+											</div>
+											<div
+												className={clsx(styles.attachmentContent, {
+													[styles.uploading]:
+														attachment.status === 'uploading'
+												})}
+												onClick={() => handleFileClick(attachment)}
+											>
+												<div className={styles.attachmentThumb}>
+													{attachment.type === 'URL' ? (
+														<div
+															className={
+																styles.attachmentTypeIcon
+															}
+														>
+															<Icon
+																name='icon-link'
+																size={10}
+															/>
+														</div>
+													) : attachment.thumbUrl ? (
+														<img
+															src={attachment.thumbUrl}
+															alt={attachment.name}
+														/>
+													) : (
+														<div
+															className={clsx(
+																styles.attachmentTypeIcon,
+																{
+																	[styles.longType]:
+																		attachment
+																			.type
+																			.length >=
+																		4
+																}
+															)}
+														>
+															{attachment.type.slice(0, 3)}
+														</div>
+													)}
+													{attachment.status === 'uploading' && (
+														<div
+															className={
+																styles.uploadingOverlay
+															}
+														>
+															<Icon
+																name='icon-loader'
+																size={16}
+																className={
+																	styles.spinner
+																}
+															/>
+														</div>
+													)}
+												</div>
+												<div
+													className={styles.attachmentName}
+													title={attachment.name}
+												>
+													{attachment.name.length > 15
+														? `${attachment.name.slice(
+																0,
+																12
+														  )}...`
+														: attachment.name}
+												</div>
+												<div
+													className={clsx(styles.pinBtn, {
+														[styles.pinned]: attachment.pinned
+													})}
+													onClick={(e) => {
+														e.stopPropagation()
+														const updatedAttachments =
+															attachments.map((att) =>
+																att === attachment
+																	? {
+																			...att,
+																			pinned: !att.pinned
+																	  }
+																	: att
+															)
+														setAttachments(updatedAttachments)
+													}}
+												>
+													<Icon name='material-keep' size={12} />
+												</div>
 											</div>
 										</div>
 									))}
@@ -453,36 +627,42 @@ const AIChat = (props: AIChatProps) => {
 				)}
 
 				<div className={styles.inputWrapper}>
-					<TextArea
-						ref={inputRef}
-						autoSize={{ minRows: 4, maxRows: 16 }}
-						placeholder={loading ? 'Please wait for response...' : 'Type your message here...'}
-						className={styles.input}
+					<MentionTextArea
 						value={inputValue}
 						onChange={handleInputChange}
-						onKeyDown={(e) => {
-							if (e.key === 'Enter' && !loading) {
-								if (e.shiftKey) {
-									return
-								}
-								e.preventDefault()
+						onSend={() => {
+							if (!loading && !optimizing) {
 								handleSend()
 							}
 						}}
+						loading={loading}
 						onPaste={handlePaste}
+						placeholder={
+							loading
+								? is_cn
+									? '请等待响应...'
+									: 'Please wait for response...'
+								: is_cn
+								? '输入消息，使用 @ 呼叫助手'
+								: 'Type your message, use @ to mention assistant'
+						}
+						autoSize={{ minRows: 4, maxRows: 16 }}
+						clear={(fn) => (clearRef.current = fn)}
+						focus={(fn) => (focusRef.current = fn)}
+						disabled={optimizing}
 					/>
 					<Button
 						type='text'
 						icon={
 							loading ? (
-								<Icon name='icon-square' size={16} />
+								<Icon name='icon-square' size={16} className={styles.actionIcon} />
 							) : (
-								<Icon name='icon-send' size={16} />
+								<Icon name='icon-send' size={16} className={styles.actionIcon} />
 							)
 						}
 						className={styles.sendBtn}
 						onClick={loading ? cancel : handleSend}
-						disabled={!loading && !inputValue.trim()}
+						disabled={(!loading && !inputValue.trim()) || optimizing}
 					/>
 				</div>
 
@@ -492,10 +672,15 @@ const AIChat = (props: AIChatProps) => {
 						<Upload {...uploadProps}>
 							<Button type='text' icon={<UploadSimple size={14} />} disabled={loading} />
 						</Upload>
-						<Button type='text' icon={<Sparkle size={14} />} disabled={loading} />
+						<Button
+							type='text'
+							icon={<Sparkle size={14} className={optimizing ? styles.optimizing : ''} />}
+							disabled={loading || optimizing || !inputValue.trim()}
+							onClick={handleOptimize}
+						/>
 					</div>
 					<div className={styles.rightInfo}>
-						{loading
+						{loading || optimizing
 							? is_cn
 								? '正在响应中...'
 								: 'Waiting for response...'

@@ -13,11 +13,14 @@ export interface IProps {
 	full?: Common.Config['full']
 	enableXterm?: boolean
 	enableAIEdit?: boolean
+	formActions?: ReactNode
+	type?: 'Form' | 'Table' | 'Other'
 }
 
 export interface IPropsLeft {
 	title: string | undefined
 	visible_menu: GlobalModel['visible_menu']
+	layout: GlobalModel['layout']
 	toggleVisibleMenu: () => void
 }
 
