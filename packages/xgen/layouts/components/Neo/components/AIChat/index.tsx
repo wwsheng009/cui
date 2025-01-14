@@ -53,6 +53,17 @@ const AIChat = (props: AIChatProps) => {
 	const [currentPage, setCurrentPage] = useState(pathname.replace(/\/_menu.*/gi, '').toLowerCase())
 	const [initialized, setInitialized] = useState(false)
 
+	const { search } = useLocation()
+	const urlParams = new URLSearchParams(search)
+	const assistantIdFromUrl = urlParams.get('assistant_id')
+
+	useEffect(() => {
+		if (assistantIdFromUrl) {
+			setAssistantId(assistantIdFromUrl)
+			global.setNeoAssistantId(assistantIdFromUrl)
+		}
+	}, [assistantIdFromUrl])
+
 	const {
 		messages,
 		loading,
@@ -69,7 +80,7 @@ const AIChat = (props: AIChatProps) => {
 		getChat,
 		generatePrompts,
 		setPendingCleanup
-	} = useAIChat({ chat_id, upload_options })
+	} = useAIChat({ assistant_id, chat_id, upload_options })
 	const [chat_context, setChatContext] = useState<App.ChatContext>({ placeholder: '', signal: '' })
 
 	const [field, setField] = useState<App.Field>({
