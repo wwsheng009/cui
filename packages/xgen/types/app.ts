@@ -76,8 +76,12 @@ export declare namespace App {
 
 	type ChatAI = {
 		is_neo: boolean
+		is_new: boolean
 		text: string
 		type?: ChatMessageType
+		assistant_id?: string
+		assistant_name?: string
+		assistant_avatar?: string
 		done: boolean
 		actions?: Array<Action.ActionParams>
 	}
@@ -107,6 +111,9 @@ export declare namespace App {
 		history: Array<{
 			role: string
 			content: string
+			assistant_id?: string
+			assistant_name?: string
+			assistant_avatar?: string
 			[key: string]: any
 		}>
 	}
@@ -115,7 +122,10 @@ export declare namespace App {
 		command?: ChatCmd
 		data: Array<{
 			content: string
-			role: 'user' | 'assistant'
+			role: 'user' | 'assistant' | 'system'
+			assistant_id?: string
+			assistant_name?: string
+			assistant_avatar?: string
 		}>
 	}
 

@@ -131,22 +131,36 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 	}, [global.app_info.optional?.neo?.api])
 
 	/** Format chat message **/
-	const formatMessage = useMemoizedFn((role: string, content: string, chatId: string) => {
-		const baseMessage = { is_neo: role === 'assistant', context: { chat_id: chatId, assistant_id } }
+	const formatMessage = useMemoizedFn(
+		(
+			role: string,
+			content: string,
+			chatId: string,
+			assistant_id?: string,
+			assistant_name?: string,
+			assistant_avatar?: string
+		) => {
+			const baseMessage = {
+				is_neo: role === 'assistant',
+				context: { chat_id: chatId, assistant_id },
+				assistant_name,
+				assistant_avatar
+			}
 
-		// Check if content is potentially JSON
-		const trimmedContent = content.trim()
-		if (!trimmedContent.startsWith('{')) {
-			return { ...baseMessage, text: content }
-		}
+			// Check if content is potentially JSON
+			const trimmedContent = content.trim()
+			if (!trimmedContent.startsWith('{')) {
+				return { ...baseMessage, text: content }
+			}
 
-		try {
-			const parsedContent = JSON.parse(trimmedContent)
-			return { ...baseMessage, ...parsedContent }
-		} catch (e) {
-			return { ...baseMessage, text: content }
+			try {
+				const parsedContent = JSON.parse(trimmedContent)
+				return { ...baseMessage, ...parsedContent }
+			} catch (e) {
+				return { ...baseMessage, text: content }
+			}
 		}
-	})
+	)
 
 	/** Get AI Chat History **/
 	const getHistory = useMemoizedFn(async () => {
@@ -159,7 +173,13 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 		if (err) return
 		if (!res?.data) return
 
-		setMessages(res.data.map(({ role, content }) => formatMessage(role, content, chat_id)))
+		console.log(`getHistory:`, res.data)
+
+		setMessages(
+			res.data.map(({ role, content, assistant_id, assistant_name, assistant_avatar }) =>
+				formatMessage(role, content, chat_id, assistant_id, assistant_name, assistant_avatar)
+			)
+		)
 	})
 
 	/** Handle title generation with progress updates **/
@@ -258,6 +278,8 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 					credentials: 'include',
 					headers: { Accept: 'application/json' }
 				})
+				if (response.status == 200 || response.status == 201) return
+
 				const data = await response.json().catch(() => ({ message: `HTTP ${response.status}` }))
 
 				let errorMessage = 'Network error, please try again later'
@@ -312,8 +334,16 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 				const formated_data = ntry(() => JSON.parse(data)) as App.ChatAI
 				if (!formated_data) return
 
-				const { text, type, actions, done } = formated_data
+				const { text, type, actions, done, assistant_id, assistant_name, assistant_avatar, is_new } =
+					formated_data
 				const current_answer = messages[messages.length - 1] as App.ChatAI
+
+				// Set assistant info
+				if (assistant_id) current_answer.assistant_id = assistant_id
+				if (assistant_name) current_answer.assistant_name = assistant_name
+				if (assistant_avatar) current_answer.assistant_avatar = assistant_avatar
+				if (is_new) current_answer.is_new = is_new
+
 				if (done) {
 					if (text) {
 						current_answer.text = text
@@ -610,7 +640,10 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 		if (!res?.data) return null
 
 		const chatInfo = res.data
-		const formattedMessages = chatInfo.history.map(({ role, content }) => formatMessage(role, content, chatId))
+		const formattedMessages = chatInfo.history.map(
+			({ role, content, assistant_id, assistant_name, assistant_avatar }) =>
+				formatMessage(role, content, chatId, assistant_id, assistant_name, assistant_avatar)
+		)
 
 		// Set messages directly in getChat
 		setMessages(formattedMessages)
