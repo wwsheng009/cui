@@ -1,40 +1,34 @@
 import { useAsyncEffect } from 'ahooks'
 import to from 'await-to-js'
-import clsx from 'clsx'
 import { Fragment, useState } from 'react'
 import * as JsxRuntime from 'react/jsx-runtime'
 import rehypeHighlight from 'rehype-highlight'
 import remarkGfm from 'remark-gfm'
 import { visit } from 'unist-util-visit'
 import { VFile } from 'vfile'
-
 import { compile, run } from '@mdx-js/mdx'
 import { useMDXComponents } from '@mdx-js/react'
-
-import components from './components'
 import styles from './index.less'
-import { App } from '@/types'
+import Code from './Code'
+import type { Component } from '@/types'
 
-interface IProps {
-	chat_info: App.ChatAI
-	type?: App.ChatMessageType
-	callback?: () => void
+interface IProps extends Component.PropsChatComponent {
+	id?: string
+	text: string
+}
+
+const components = {
+	code: Code
 }
 
 const Index = (props: IProps) => {
-	const { chat_info, type, callback } = props
-	const [target, setTarget] = useState<any>()
-	const mdx_components = useMDXComponents(components)
+	const { text } = props
+	const [content, setContent] = useState<any>()
+	const mdxComponents = useMDXComponents(components)
 
 	useAsyncEffect(async () => {
-		// If there is an error, display the error message
-		if (type === 'error') {
-			setTarget(<div className={'error'}>{chat_info.text}</div>)
-			return
-		}
-
-		const vfile = new VFile(chat_info.text)
-		const [err, compiled_source] = await to(
+		const vfile = new VFile(text)
+		const [err, compiledSource] = await to(
 			compile(vfile, {
 				format: 'md',
 				outputFormat: 'function-body',
@@ -51,9 +45,7 @@ const Index = (props: IProps) => {
 
 							if (node?.type === 'element' && node?.tagName === 'pre') {
 								const [codeEl] = node.children
-
 								if (codeEl.tagName !== 'code') return
-
 								node.raw = codeEl.children?.[0].value
 							}
 						})
@@ -75,24 +67,23 @@ const Index = (props: IProps) => {
 		)
 
 		if (err) {
-			setTarget(<div className={'error'}>{err.message}</div>)
+			setContent(<div className={'error'}>{err.message}</div>)
 			return
 		}
 
-		if (!compiled_source) return
-		compiled_source.value = (compiled_source.value as string).replaceAll('%7B', '{')
+		if (!compiledSource) return
+		compiledSource.value = (compiledSource.value as string).replaceAll('%7B', '{')
 
-		const { default: Content } = await run(compiled_source, {
+		const { default: Content } = await run(compiledSource, {
 			...JsxRuntime,
 			Fragment,
-			useMDXComponents: () => mdx_components
+			useMDXComponents: () => mdxComponents
 		})
 
-		setTarget(Content)
-		callback?.()
-	}, [chat_info])
+		setContent(Content)
+	}, [text])
 
-	return <div className={clsx(styles._local)}>{target}</div>
+	return <div className={styles._local}>{content}</div>
 }
 
 export default window.$app.memo(Index)
