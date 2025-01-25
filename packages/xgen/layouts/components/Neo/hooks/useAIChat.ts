@@ -9,6 +9,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { message as message_ } from 'antd'
 import { RcFile } from 'antd/es/upload'
 import { getLocale } from '@umijs/max'
+import type { Action } from '@/types'
+import { useAction } from '@/actions'
 
 type Args = {
 	/** the assistant id to use for the chat **/
@@ -118,6 +120,7 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 
 	const locale = getLocale()
 	const is_cn = locale === 'zh-CN'
+	const onAction = useAction()
 
 	// Add new state for title generation loading
 	const [titleGenerating, setTitleGenerating] = useState(false)
@@ -143,6 +146,7 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 			const baseMessage = {
 				is_neo: role === 'assistant',
 				context: { chat_id: chatId, assistant_id },
+				assistant_id,
 				assistant_name,
 				assistant_avatar
 			}
@@ -362,6 +366,21 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 			return true
 		}
 
+		// Run action with namespace, primary, data_item, extra
+		function runAction(
+			action: Array<Action.ActionParams>,
+			namespace: string,
+			primary: string,
+			data_item: any,
+			extra?: any
+		) {
+			try {
+				onAction({ namespace, primary, data_item, it: { action, title: '', icon: '' }, extra })
+			} catch (err) {
+				console.error('Failed to run action:', err)
+			}
+		}
+
 		function setupEventSource() {
 			// Save last assistant info
 			const last_assistant: {
@@ -389,13 +408,55 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 					text,
 					props,
 					type,
-					actions,
 					done,
 					assistant_id,
 					assistant_name,
 					assistant_avatar,
 					new: is_new
 				} = formated_data
+
+				// Action message (action call)
+				if (type === 'action') {
+					const { namespace, primary, data_item, action, extra } = props || {}
+					if (!action) {
+						console.error('No actions found')
+						if (done) {
+							setLoading(false)
+							es.close()
+						}
+						return
+					}
+
+					if (!Array.isArray(action)) {
+						console.error('Action is not an array')
+						if (done) {
+							setLoading(false)
+							es.close()
+						}
+						return
+					}
+
+					// Close event source if done
+					if (done) {
+						setLoading(false)
+						es.close()
+
+						// If is the first message, generate title using SSE
+						if (isFirstMessage(messages) && chat_id) {
+							handleTitleGeneration(messages, chat_id)
+						}
+					}
+
+					// Run action
+					runAction(
+						action as Array<Action.ActionParams>,
+						namespace || 'chat',
+						primary || 'id',
+						data_item || {},
+						extra
+					)
+					return
+				}
 
 				// create new message if is_new is true
 				if (is_new) {
@@ -434,11 +495,9 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 
 					// If is the first message, generate title using SSE
 					if (isFirstMessage(messages) && chat_id) {
-						console.log('isFirstMessage', messages)
 						handleTitleGeneration(messages, chat_id)
 					}
 
-					current_answer.actions = actions
 					setMessages([...messages])
 					setLoading(false)
 
@@ -987,6 +1046,18 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 		return res?.data || { data: [], page: 1, pagesize: 10, total: 0, last_page: 1 }
 	})
 
+	/** Call Assistant API */
+	const callAssistantAPI = useMemoizedFn(
+		async (assistantId: string, name: string, payload: Record<string, any>) => {
+			if (!neo_api) return null
+			const endpoint = `${neo_api}/assistants/${assistantId}/call?token=${encodeURIComponent(getToken())}`
+			const [err, res] = await to<{ data: any }>(axios.post(endpoint, { name, payload }))
+			if (err) throw err
+
+			return res || null
+		}
+	)
+
 	/** Find Assistant Detail */
 	const findAssistant = useMemoizedFn(async (assistantId: string) => {
 		if (!neo_api) return null
@@ -1052,6 +1123,7 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 		findAssistant,
 		saveAssistant,
 		deleteAssistant,
+		callAssistantAPI,
 		setPendingCleanup
 	}
 }

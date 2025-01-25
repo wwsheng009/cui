@@ -28,6 +28,7 @@ export declare namespace App {
 		| 'widget'
 		| 'function'
 		| 'loading'
+		| 'action'
 
 	type ChatCmd = {
 		id: string
@@ -87,7 +88,7 @@ export declare namespace App {
 		assistant_id?: string
 		assistant_name?: string
 		assistant_avatar?: string
-		actions?: Array<Action.ActionParams>
+		// actions?: Array<Action.ActionParams>
 		done: boolean
 	}
 
@@ -95,6 +96,7 @@ export declare namespace App {
 		is_neo: boolean
 		text: string
 		attachments?: ChatAttachment[]
+		assistant_id?: string
 		context?: {
 			namespace: string
 			stack: string
