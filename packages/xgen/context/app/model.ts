@@ -31,7 +31,7 @@ export default class GlobalModel {
 	hide_nav: boolean = false
 
 	// Global Neo Context
-	neo: App.Neo = { assistant_id: undefined, chat_id: undefined }
+	neo: App.Neo = { assistant_id: undefined, chat_id: undefined, placeholder: undefined }
 	dataCache: Record<string, any> = {}
 
 	constructor(private service: Service, public stack: Stack) {
@@ -39,13 +39,13 @@ export default class GlobalModel {
 
 		const theme = (local.xgen_theme || 'light') as App.Theme
 		const avatar = local.avatar as AvatarFullConfig
-		const layout = (local.xgen_layout || 'Admin') as App.Layout
+		// const layout = (local.xgen_layout || 'Admin') as App.Layout
 
 		this.reactions()
 		this.getAppInfo()
 		this.setTheme(theme)
 		this.setAvatar(avatar)
-		this.setLayout(layout)
+		// this.setLayout(layout)
 		this.setNeo()
 	}
 
@@ -56,10 +56,16 @@ export default class GlobalModel {
 
 		this.app_info = res
 
+		// API Prefix
 		window.$app.api_prefix = res.apiPrefix || '__yao'
 
+		// Storage
 		local.remote_cache = res.optional?.remoteCache ?? true
 		local.token_storage = res.token?.storage || 'sessionStorage'
+
+		// Default Layout
+		const layout = local.xgen_layout || res.optional?.layout || 'Admin'
+		this.setLayout(layout)
 
 		return Promise.resolve()
 	}
@@ -171,7 +177,7 @@ export default class GlobalModel {
 			this.neo = neo
 			return
 		}
-		this.neo = { assistant_id: undefined, chat_id: undefined }
+		this.neo = { assistant_id: undefined, chat_id: undefined, placeholder: undefined }
 	}
 
 	setNeoChatId(chat_id: string) {
@@ -180,6 +186,10 @@ export default class GlobalModel {
 
 	setNeoAssistantId(assistant_id: string) {
 		this.neo.assistant_id = assistant_id
+	}
+
+	setNeoPlaceholder(placeholder: App.ChatPlaceholder) {
+		this.neo.placeholder = placeholder
 	}
 
 	updateMenuStatus(itemkey_or_pathname: string) {

@@ -13,7 +13,7 @@ export declare namespace App {
 	type Theme = 'light' | 'dark'
 
 	/** Global Neo Context */
-	type Neo = { assistant_id?: string; chat_id?: string }
+	type Neo = { assistant_id?: string; chat_id?: string; placeholder?: ChatPlaceholder }
 
 	type ChatMessageType =
 		| 'text'
@@ -214,6 +214,9 @@ export declare namespace App {
 		mode?: 'development' | 'production' | 'test'
 
 		optional?: {
+			/** default layout */
+			layout?: Layout
+
 			/** remote api cache, default is true */
 			remoteCache?: boolean
 			/** neo config, for chatgpt service */
@@ -311,7 +314,15 @@ export declare namespace App {
 	/** Options for creating a new chat */
 	interface NewChatOptions {
 		content?: string
+		chat_id?: string
 		attachments?: ChatAttachment[]
+		placeholder?: ChatPlaceholder
+	}
+
+	interface ChatPlaceholder {
+		title?: string
+		description?: string
+		prompts?: string[]
 	}
 
 	// Add Mention interface near the top with other basic types
