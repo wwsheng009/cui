@@ -26,7 +26,8 @@ export declare namespace App {
 		| 'progress'
 		| 'page'
 		| 'widget'
-		| 'function'
+		| 'tool'
+		| 'think'
 		| 'loading'
 		| 'action'
 
@@ -81,6 +82,7 @@ export declare namespace App {
 		is_neo: boolean
 		new: boolean
 		text: string
+		id?: string
 		type?: ChatMessageType
 		function?: string
 		arguments?: string
@@ -89,7 +91,8 @@ export declare namespace App {
 		assistant_name?: string
 		assistant_avatar?: string
 		// actions?: Array<Action.ActionParams>
-		done: boolean
+		done: boolean // Whether the message is done
+		delta?: boolean // Whether the message is a delta message
 	}
 
 	type ChatHuman = {
