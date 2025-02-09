@@ -151,15 +151,19 @@ const formatToMDX = (text: string, tokens: Record<string, { pending: boolean }>)
 	return formattedText
 }
 
-export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
+export default ({ chat_id, upload_options = {} }: Args) => {
 	const event_source = useRef<EventSource>()
+	const global = useGlobal()
 	const [messages, setMessages] = useState<Array<App.ChatInfo>>([])
+	const [assistant, setAssistant] = useState<App.AssistantSummary | undefined>(global.default_assistant)
+
 	const [title, setTitle] = useState<string>('')
 	const [loading, setLoading] = useState(false)
+	const [loadingChat, setLoadingChat] = useState(false)
 	const [attachments, setAttachments] = useState<App.ChatAttachment[]>([])
 	const [pendingCleanup, setPendingCleanup] = useState<App.ChatAttachment[]>([])
 	const uploadControllers = useRef<Map<string, AbortController>>(new Map())
-	const global = useGlobal()
+	const [assistant_id, setAssistantId] = useState<string | undefined>('')
 
 	const locale = getLocale()
 	const is_cn = locale === 'zh-CN'
@@ -175,6 +179,12 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 		if (api.startsWith('http')) return api
 		return `/api/${window.$app.api_prefix}${api}`
 	}, [global.app_info.optional?.neo?.api])
+
+	/** Update assistant **/
+	const updateAssistant = useMemoizedFn(async (assistant: App.AssistantSummary) => {
+		setAssistant(assistant)
+		setAssistantId(assistant.assistant_id)
+	})
 
 	/** Merge messages with same id */
 	const mergeMessages = useMemoizedFn((parsedContent: any[], baseMessage: any): App.ChatInfo[] => {
@@ -633,6 +643,19 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 				current_answer.assistant_avatar = last_assistant.assistant_avatar || undefined
 				current_answer.type = type || last_type || 'text'
 
+				// Update assistant info
+				if (
+					last_assistant.assistant_id &&
+					last_assistant.assistant_name &&
+					last_assistant.assistant_avatar
+				) {
+					updateAssistant({
+						...last_assistant,
+						assistant_deleteable:
+							last_assistant.assistant_id !== global.default_assistant.assistant_id
+					} as App.AssistantSummary)
+				}
+
 				if (done) {
 					if (text) {
 						current_answer.text = text
@@ -951,6 +974,7 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 
 	/** Get Single Chat **/
 	const getChat = useMemoizedFn(async (id?: string) => {
+		setLoadingChat(true)
 		if (!neo_api) return
 
 		const chatId = id || chat_id
@@ -961,10 +985,14 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 		const [err, res] = await to<{ data: App.ChatDetail }>(axios.get(endpoint))
 		if (err) {
 			message_.error('Failed to fetch chat details')
+			setLoadingChat(false)
 			return
 		}
 
-		if (!res?.data) return null
+		if (!res?.data) {
+			setLoadingChat(false)
+			return null
+		}
 
 		const chatInfo = res.data
 		const formattedMessages: App.ChatInfo[] = []
@@ -978,6 +1006,10 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 		setMessages(formattedMessages)
 		setTitle(chatInfo.chat.title || (is_cn ? '未命名' : 'Untitled'))
 
+		// Update assistant
+		updateAssistant(res.data.chat as App.AssistantSummary)
+		setLoadingChat(false)
+
 		return {
 			messages: formattedMessages,
 			title: chatInfo.chat.title || (is_cn ? '未命名' : 'Untitled')
@@ -989,6 +1021,7 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 		assistant_id?: string
 	): Promise<{ chat_id: string; placeholder?: App.ChatPlaceholder; exist?: boolean } | null> {
 		if (!neo_api) return { chat_id: makeChatID(), placeholder: undefined, exist: false }
+		setLoadingChat(true)
 
 		const endpoint = `${neo_api}/chats/latest?token=${encodeURIComponent(getToken())}&assistant_id=${
 			assistant_id || ''
@@ -999,6 +1032,7 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 		)
 		if (err) {
 			message_.error('Failed to fetch the latest chat')
+			setLoadingChat(false)
 			return null
 		}
 
@@ -1006,6 +1040,9 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 
 		// New chat
 		if (typeof res.data === 'object' && 'placeholder' in res.data) {
+			// Update assistant
+			updateAssistant(res.data as App.AssistantSummary)
+			setLoadingChat(false)
 			return { chat_id: makeChatID(), placeholder: res.data.placeholder }
 		}
 
@@ -1022,9 +1059,18 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 		setMessages(formattedMessages)
 		setTitle(chatInfo.chat.title || (is_cn ? '未命名' : 'Untitled'))
 
+		// Update assistant
+		updateAssistant(chatInfo.chat)
+		setLoadingChat(false)
+
 		// Set chat_id
 		global.setNeoChatId(chatInfo.chat.chat_id)
 		return { chat_id: chatInfo.chat.chat_id, exist: true }
+	})
+
+	/** Reset assistant **/
+	const resetAssistant = useMemoizedFn(() => {
+		updateAssistant(global.default_assistant)
 	})
 
 	/** Update Chat **/
@@ -1325,6 +1371,8 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 	return {
 		messages,
 		loading,
+		loadingChat,
+		assistant,
 		setMessages,
 		cancel,
 		uploadFile,
@@ -1351,6 +1399,8 @@ export default ({ assistant_id, chat_id, upload_options = {} }: Args) => {
 		generateTitle,
 		generatePrompts,
 		titleGenerating,
+		resetAssistant,
+		updateAssistant,
 		setTitleGenerating,
 		getAssistants,
 		findAssistant,
