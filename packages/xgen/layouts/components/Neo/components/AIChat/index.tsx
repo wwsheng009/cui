@@ -55,17 +55,6 @@ const AIChat = (props: AIChatProps) => {
 	const [initialized, setInitialized] = useState(false)
 	const [placeholder, setPlaceholder] = useState<App.ChatPlaceholder | undefined>(global.neo.placeholder)
 
-	const { search } = useLocation()
-	const urlParams = new URLSearchParams(search)
-	const assistantIdFromUrl = urlParams.get('assistant_id')
-
-	useEffect(() => {
-		if (assistantIdFromUrl) {
-			setAssistantId(assistantIdFromUrl)
-			global.setNeoAssistantId(assistantIdFromUrl)
-		}
-	}, [assistantIdFromUrl])
-
 	const {
 		assistant,
 		loadingChat,
@@ -87,7 +76,8 @@ const AIChat = (props: AIChatProps) => {
 		getLatestChat,
 		generatePrompts,
 		setPendingCleanup,
-		makeChatID
+		makeChatID,
+		findAssistant
 	} = useAIChat({ chat_id, upload_options })
 	const [chat_context, setChatContext] = useState<App.ChatContext>({ placeholder: '', signal: '' })
 
@@ -128,26 +118,53 @@ const AIChat = (props: AIChatProps) => {
 		primary: '',
 		data_item: {}
 	})
+	const { search } = useLocation()
+	const urlParams = new URLSearchParams(search)
+	const assistantIdFromUrl = urlParams.get('assistant_id')
 
 	// Load chat details when initialized
 	useEffect(() => {
-		const loadChat = async () => {
-			if (!initialized && chat_id != '') {
-				await getChat()
-				setInitialized(true)
+		const initializeChat = async () => {
+			let init = false
+			const changeAssistant = async () => {
+				if (assistantIdFromUrl && !initialized && !chat_id) {
+					const data = await findAssistant(assistantIdFromUrl)
+					if (!data) {
+						message.error('Assistant not found')
+						return
+					}
+					const assistant = {
+						assistant_id: data.assistant_id,
+						assistant_name: data.name,
+						assistant_avatar: data.avatar,
+						assistant_deleteable: data.assistant_id !== global.default_assistant.assistant_id
+					} as App.AssistantSummary
+					global.setDefaultAssistant(assistant)
+					handleNewChat({ assistant })
+					setInitialized(true)
+					init = true
+				}
 			}
+			await changeAssistant()
+			const loadChat = async () => {
+				if (!initialized && chat_id != '') {
+					await getChat()
+					setInitialized(true)
+				}
 
-			// New chat
-			if (!initialized && !chat_id) {
-				// if res is not null, create a new chat
-				const res = await getLatestChat(assistant?.assistant_id || '')
-				res && !res.exist && handleNewChat(res) // new chat
-				res && res.exist && setChatId(res.chat_id) // existing chat
-				setInitialized(true)
+				// New chat
+				if (!initialized && !chat_id) {
+					// if res is not null, create a new chat
+					const res = await getLatestChat(assistant?.assistant_id || '')
+					res && !res.exist && handleNewChat(res) // new chat
+					res && res.exist && setChatId(res.chat_id) // existing chat
+					setInitialized(true)
+				}
 			}
+			if (!init) await loadChat()
 		}
-		loadChat()
-	}, [initialized, chat_id])
+		initializeChat()
+	}, [initialized, chat_id, assistantIdFromUrl])
 
 	const clearRef = useRef<(() => void) | null>(null)
 	const focusRef = useRef<(() => void) | null>(null)
