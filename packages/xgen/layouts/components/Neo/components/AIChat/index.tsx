@@ -127,10 +127,9 @@ const AIChat = (props: AIChatProps) => {
 		const initializeChat = async () => {
 			let init = false
 			const changeAssistant = async () => {
-				if (assistantIdFromUrl && !initialized && !chat_id) {
+				if (assistantIdFromUrl && assistantIdFromUrl.length > 0 && !initialized && !chat_id) {
 					const data = await findAssistant(assistantIdFromUrl)
 					if (!data) {
-						message.error('Assistant not found')
 						return
 					}
 					const assistant = {
@@ -140,7 +139,9 @@ const AIChat = (props: AIChatProps) => {
 						assistant_deleteable: data.assistant_id !== global.default_assistant.assistant_id
 					} as App.AssistantSummary
 					global.setDefaultAssistant(assistant)
-					handleNewChat({ assistant })
+					const res = await getLatestChat(assistant?.assistant_id || '')
+					res && !res.exist && handleNewChat(res) // new chat
+					res && res.exist && setChatId(res.chat_id) // existing chat
 					setInitialized(true)
 					init = true
 				}

@@ -9,7 +9,14 @@ import { getToken, getStudio } from '@/knife'
 import type { App } from '@/types'
 
 type Args = { api: string; studio?: boolean }
-
+const escapeHtml = (text: string) => {
+	return text
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#039;')
+}
 export default ({ api, studio }: Args) => {
 	const event_source = useRef<EventSource>()
 	const [messages, setMessages] = useState<Array<App.ChatInfo>>([])
@@ -68,7 +75,7 @@ export default ({ api, studio }: Args) => {
 		)
 
 		event_source.current = es
-
+		let content = ''
 		es.onopen = () => {
 			messages.push({ is_neo: true, text: '' })
 		}
@@ -78,7 +85,7 @@ export default ({ api, studio }: Args) => {
 
 			if (!formated_data) return
 
-			const { text, confirm, actions, done, command } = formated_data
+			const { text, type, confirm, actions, done, command } = formated_data
 			const current_answer = messages[messages.length - 1] as App.ChatAI
 
 			if (done) {
@@ -105,10 +112,19 @@ export default ({ api, studio }: Args) => {
 			if (!text) return
 
 			if (text.startsWith('\r')) {
-				current_answer.text = text.replace('\r', '')
+				content = text.replace('\r', '')
+				// current_answer.text = text.replace('\r', '')
 			} else {
-				current_answer.text = current_answer.text + text
+				content += text
+				// current_answer.text = current_answer.text + text
 			}
+			current_answer.text = content
+			if (type !== 'text' && content.indexOf(`<${type}>`) !== -1) {
+				if (content.indexOf(`</${type}>`) == -1) {
+					current_answer.text += `\n</${type}>\n`
+				}
+			}
+			current_answer.text = escapeHtml(current_answer.text)
 
 			const message_new = [...messages]
 
