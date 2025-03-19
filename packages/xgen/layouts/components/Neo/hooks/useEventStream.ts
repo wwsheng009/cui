@@ -85,11 +85,14 @@ export default ({ api, studio }: Args) => {
 
 			if (!formated_data) return
 
+			// @ts-ignore
 			const { text, type, confirm, actions, done, command } = formated_data
 			const current_answer = messages[messages.length - 1] as App.ChatAI
 
 			if (done) {
+				// @ts-ignore
 				current_answer.confirm = confirm
+				// @ts-ignore
 				current_answer.actions = actions
 
 				setMessages([...messages])
@@ -100,7 +103,9 @@ export default ({ api, studio }: Args) => {
 			}
 
 			if (cmd && !command) {
+				// @ts-ignore
 				current_answer.confirm = confirm
+				// @ts-ignore
 				current_answer.actions = actions
 
 				setMessages([...messages])
