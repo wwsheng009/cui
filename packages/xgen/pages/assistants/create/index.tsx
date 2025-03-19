@@ -5,6 +5,7 @@ import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons'
 import { App } from '@/types'
 import useAIChat from '@/layouts/components/Neo/hooks/useAIChat'
 import Prompts from '../detail/components/Prompts'
+import ChatPlaceholder from '../detail/components/ChatPlaceholder'
 import styles from './index.less'
 import { useGlobal } from '@/context/app'
 
@@ -19,6 +20,7 @@ interface Message {
 const AssistantCreate = () => {
 	const locale = getLocale()
 	const is_cn = locale === 'zh-CN'
+	const [formTitle, setFormTitle] = useState(is_cn ? '新助手' : 'New Assistant')
 
 	const global = useGlobal()
 	const { connectors } = global
@@ -26,8 +28,10 @@ const AssistantCreate = () => {
 	const [form] = Form.useForm()
 	const [prompts, setPrompts] = useState<Message[]>([])
 	const [options, setOptions] = useState<{ key: string; value: string }[]>([])
+	const [placeholder, setPlaceholder] = useState<App.ChatPlaceholder>({})
 	const aiChatRef = useRef<any>(null)
 	const { saveAssistant } = useAIChat({})
+	const description = Form.useWatch('description', form)
 
 	// Initialize aiChatRef immediately
 	if (!aiChatRef.current) {
@@ -38,6 +42,22 @@ const AssistantCreate = () => {
 	useEffect(() => {
 		aiChatRef.current = { saveAssistant }
 	}, [saveAssistant])
+
+	// Update placeholder when description changes
+	useEffect(() => {
+		if (!description || placeholder?.description) return
+
+		const assistantName = form.getFieldValue('name') || ''
+		const greeting = is_cn
+			? `你好，我是${assistantName}，${description}`
+			: `Hello, I'm ${assistantName}, ${description}`
+
+		setPlaceholder((prev) => ({
+			...prev,
+			title: prev.title || (is_cn ? '新对话' : 'New Chat'),
+			description: greeting
+		}))
+	}, [description, is_cn, placeholder, form])
 
 	const handleBack = () => {
 		history.push('/assistants')
@@ -52,15 +72,13 @@ const AssistantCreate = () => {
 			const assistantData = {
 				...values,
 				avatar: avatarUrl,
-				tags: ['general'],
+				type: 'assistant',
 				mentionable: true,
-				automated: false,
+				automated: true,
 				built_in: false,
 				readonly: false,
-				option: {
-					...Object.fromEntries(options.map(({ key, value }) => [key, value]))
-				},
-				prompts
+				prompts,
+				placeholder
 			}
 
 			const result = await aiChatRef.current.saveAssistant(assistantData)
@@ -109,9 +127,7 @@ const AssistantCreate = () => {
 			<div className={styles.simpleFormContainer}>
 				<div className={styles.formContent}>
 					<div className={styles.formHeader}>
-						<h2 className={styles.formTitle}>
-							{is_cn ? '创建新助手' : 'Create New Assistant'}
-						</h2>
+						<h2 className={styles.formTitle}>{formTitle}</h2>
 						<Button type='primary' onClick={() => form.submit()} htmlType='submit'>
 							{is_cn ? '创建' : 'Create'} <ArrowRightOutlined />
 						</Button>
@@ -170,6 +186,10 @@ const AssistantCreate = () => {
 						>
 							<Input
 								placeholder={is_cn ? '输入一个描述性名称' : 'Enter a descriptive name'}
+								onChange={(e) => {
+									const name = e.target.value.trim()
+									setFormTitle(name || (is_cn ? '新助手' : 'New Assistant'))
+								}}
 							/>
 						</Form.Item>
 
@@ -202,6 +222,13 @@ const AssistantCreate = () => {
 									onChange={setPrompts}
 									onOptionsChange={setOptions}
 								/>
+							</div>
+						</div>
+
+						<div className={styles.placeholderSection}>
+							<h3>{is_cn ? '对话占位符' : 'Chat Placeholder'}</h3>
+							<div className={styles.placeholderContainer}>
+								<ChatPlaceholder value={placeholder} onChange={setPlaceholder} />
 							</div>
 						</div>
 					</Form>
