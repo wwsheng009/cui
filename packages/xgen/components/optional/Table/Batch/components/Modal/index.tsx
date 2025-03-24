@@ -103,9 +103,9 @@ const Index = (props: IProps) => {
 								<Col span={item.width} key={index}>
 									<X
 										type='edit'
-										name={item.edit.type}
+										name={item.edit?.type || 'Input'}
 										props={{
-											...toJS(item.edit.props),
+											...toJS(item.edit?.props),
 											__bind: item.bind,
 											__name: item.name
 										}}
