@@ -142,10 +142,10 @@ const AIChat = (props: AIChatProps) => {
 						assistant_avatar: data.avatar,
 						assistant_deleteable: data.assistant_id !== global.default_assistant.assistant_id
 					} as App.AssistantSummary
-					// global.setDefaultAssistant(data.assistant)
-					const res = await getLatestChat(assistant?.assistant_id || '')
-					res && !res.exist && handleNewChat(res) // new chat
-					res && res.exist && setChatId(res.chat_id) // existing chat
+					const options: App.NewChatOptions = {
+						assistant: assistant
+					}
+					handleNewChat(options)
 					setInitialized(true)
 					init = true
 				}
