@@ -4,9 +4,11 @@ import Loading from '../loading'
 import styles from './index.less'
 import type { Component } from '@/types'
 import { Icon } from '@/widgets'
-import { LogButton, LogProvider } from '../../builder/Log'
-import Log from '../../builder/Log'
+import { openLogWindow, updateLogData, isLogWindowOpen } from '../../builder/Log'
+import { LogItem, LogTabItem } from '@/components/builder/Log/types'
+import { SizeHumanize, FormatDateTime } from '@/utils'
 
+const funRe = /"function"\s*:\s*"(\w+)"/
 const getTextFromHtml = (html: React.ReactNode): string => {
 	if (typeof html === 'string') {
 		return html
@@ -22,6 +24,10 @@ const getTextFromHtml = (html: React.ReactNode): string => {
 }
 
 interface IProps extends Component.PropsChatComponent {
+	id?: string
+	done?: boolean
+	begin?: number
+	end?: number
 	text?: string
 	chat_id: string
 	pending?: boolean
@@ -29,175 +35,151 @@ interface IProps extends Component.PropsChatComponent {
 	children?: React.ReactNode
 }
 
-const sizeHumanize = (size: number) => {
-	if (size < 1024) {
-		return `${size} B`
+interface ToolContentProps {
+	id: string
+	chat_id: string
+	pending?: boolean
+	size: string
+	title: string
+	done?: boolean
+	logs: {
+		console: LogItem[]
+		output: LogItem[]
 	}
-	return `${(size / 1024).toFixed(2)} KB`
 }
 
-const ToolContent = (props: IProps) => {
-	const { text: text_, chat_id, pending, children, props: props_ } = props
+const ToolContent = (props: ToolContentProps) => {
+	const { id, chat_id, pending, size, title, logs, done } = props
 	const is_cn = getLocale() === 'zh-CN'
+
+	// Initial open of log window
+	const handleLogClick = (logId: string) =>
+		openLogWindow(logId, {
+			logs,
+			title,
+			tabItems: getTabItems(is_cn)
+		})
+
+	const innerContent = (
+		<div className={done ? styles.tool_done : styles.tool}>
+			<span className={styles.icon}>
+				<Icon name='material-slow_motion_video' size={16} />
+			</span>
+			<span>{title}</span>
+		</div>
+	)
+
+	return (
+		<div
+			onClick={!done ? undefined : () => handleLogClick(id)}
+			style={{ cursor: !done ? 'default' : 'pointer' }}
+		>
+			{innerContent}
+		</div>
+	)
+}
+
+const getTabItems = (is_cn: boolean): LogTabItem[] => {
+	return [
+		{
+			key: 'console',
+			label: is_cn ? '工具调用' : 'Tool Call',
+			children: null
+		},
+		{
+			key: 'output',
+			label: is_cn ? '实时消息' : 'Live Messages',
+			children: null
+		}
+	]
+}
+
+const parseLogs = (props: IProps, is_cn: boolean) => {
+	const { text: text_, chat_id, pending, children, props: props_ } = props
 	const text = props_?.text || text_
-	let content = getTextFromHtml(children) || text || (is_cn ? '工具调用请求' : 'Tool call request')
+	const consoleLogs: LogItem[] = []
+	const outputLogs: LogItem[] = []
+	const begin = parseInt(props_?.begin || props?.begin || '0') / 1000 / 1000
+	const end = parseInt(props_?.end || props?.end || '0') / 1000 / 1000
+
+	let title = is_cn ? '生成工具调用' : 'Generating Tool Call'
+	let content = getTextFromHtml(children) || text || (is_cn ? '生成工具调用' : 'Generating Tool Call')
 	content = content
 		.replace(/%7B/g, '{')
 		.replace(/%7D/g, '}')
 		.replace(/%22/g, '"')
 		.replace(/&quot;/g, '"')
 
-	const size = sizeHumanize(content.length)
-	if (!pending) {
-		// "function":"new_feature"
-		// 使用正则表达式提取 function 的值,
-		const function_match = content.match(/\"function\"\s*:\s*\"(\w+)\"/)
-		if (function_match) {
-			content = is_cn ? `工具调用请求: ${function_match[1]}` : `Tool call request: ${function_match[1]}`
-		} else {
-			content = is_cn ? '工具调用请求' : 'Tool call request'
-		}
+	outputLogs.push({
+		datetime: FormatDateTime(end ? new Date(end) : begin ? new Date(begin) : new Date()),
+		message: content,
+		level: 'info'
+	})
 
-		// try {
-
-		// 	const json = JSON.parse(content)
-		// 	if (json.function) {
-		// 		content = is_cn ? `工具调用请求: ${json.function}` : `Tool call request: ${json.function}`
-		// 	}
-		// } catch (error) {
-		// 	console.error(content)
-		// 	content = is_cn ? '工具调用请求' : 'Tool call request'
-		// }
+	const size = SizeHumanize(content.length)
+	const match = content.match(funRe)
+	if (match) {
+		title = is_cn ? `生成工具调用: ${match[1]}` : `Generating Tool Call: ${match[1]}`
 	}
 
-	const innerContent = pending ? (
-		<Loading
-			chat_id={chat_id}
-			placeholder={is_cn ? `工具调用请求 ${size}` : `Tool call request ${size}`}
-			icon='material-slow_motion_video'
-		/>
-	) : (
-		<div className={styles.tool}>
-			<span className={styles.icon}>
-				<Icon name='material-slow_motion_video' size={16} />
-			</span>
-			<span>{content}</span>
-		</div>
-	)
+	consoleLogs.push({
+		datetime: FormatDateTime(begin ? new Date(begin) : new Date()),
+		message: is_cn ? `生成工具调用请求 ${size}` : `Generating Tool Call Request (${size})`,
+		level: 'info'
+	})
 
-	return (
-		<LogButton id={chat_id}>
-			{innerContent}
-			<Icon name='material-chevron_right' size={16} className={styles.arrowIcon} />
-		</LogButton>
-	)
+	if (!pending) {
+		consoleLogs.push({
+			datetime: FormatDateTime(end ? new Date(end) : new Date()),
+			message: is_cn ? `生成完毕` : `Tool Call Request Generated`,
+			level: 'info'
+		})
+	}
+
+	return {
+		title,
+		size,
+		consoleLogs,
+		outputLogs
+	}
 }
 
 const Index = (props: IProps) => {
+	const { id, done } = props
 	const is_cn = getLocale() === 'zh-CN'
 
-	// 生成随机日志
-	const generateMockLogs = () => {
-		const messages = {
-			info: [
-				'Application started',
-				'Loading configuration...',
-				'Database connected successfully',
-				'Cache initialized',
-				'Processing request',
-				'Request completed',
-				'GET /api/users',
-				'POST /api/data',
-				'GET /api/status',
-				'200 OK - Success'
-			],
-			warn: [
-				'Memory usage above 80%',
-				'High CPU usage detected',
-				'Rate limit approaching',
-				'Slow query detected',
-				'429 Too Many Requests',
-				'Cache miss rate high'
-			],
-			error: [
-				"Failed to connect to database\nTypeError: Cannot read properties of undefined (reading 'connect')\n    at Database.connect (/src/database.ts:42:10)",
-				'Internal Server Error\nError: Database query failed\nError: timeout of 5000ms exceeded\n    at QueryTimeout (/src/db/query.ts:78:23)',
-				'ValidationError: Invalid request payload\n    at validatePayload (/src/validators.ts:156:12)',
-				'Error: Connection refused\n    at TCPConnectWrap.afterConnect [as oncomplete] (net.js:1146:16)',
-				'ReferenceError: variable is not defined\n    at processRequest (/src/middleware/validation.ts:45:8)'
-			]
-		}
+	// Memoize the parsed logs to prevent unnecessary re-renders
+	const parsedData = React.useMemo(() => parseLogs(props, is_cn), [props, is_cn])
+	const { title, size, consoleLogs, outputLogs } = parsedData
 
-		const getRandomMessage = (level: keyof typeof messages) => {
-			const msgs = messages[level]
-			return msgs[Math.floor(Math.random() * msgs.length)]
-		}
+	// // Update log window when data changes if window is open
+	// React.useEffect(() => {
+	// 	if (id && isLogWindowOpen(id)) {
+	// 		updateLogData(id, {
+	// 			logs: {
+	// 				console: consoleLogs,
+	// 				output: outputLogs
+	// 			},
+	// 			title,
+	// 			tabItems: getTabItems(is_cn)
+	// 		})
+	// 	}
+	// }, [id, consoleLogs, outputLogs, title, is_cn])
 
-		const getRandomLevel = (): 'info' | 'warn' | 'error' => {
-			const weights = { info: 0.7, warn: 0.2, error: 0.1 }
-			const rand = Math.random()
-			if (rand < weights.info) return 'info'
-			if (rand < weights.info + weights.warn) return 'warn'
-			return 'error'
-		}
-
-		const generateLogEntries = (count: number) => {
-			return Array.from({ length: count }, (_, i) => {
-				const level = getRandomLevel()
-				return {
-					datetime: new Date(Date.now() - (count - i) * 1000), // 每条日志间隔1秒
-					message: getRandomMessage(level),
-					level: level
-				}
-			})
-		}
-
-		return [
-			{
-				id: props.chat_id,
-				console: generateLogEntries(100),
-				request: generateLogEntries(100),
-				response: generateLogEntries(100),
-				debug: generateLogEntries(100)
-			}
-		]
-	}
-
-	const mockLogs = generateMockLogs()
-
-	const customTabItems = [
-		{
-			key: 'console',
-			label: is_cn ? '控制台输出' : 'Console Output',
-			children: null
-		},
-		{
-			key: 'request',
-			label: is_cn ? '请求数据' : 'Request Data',
-			children: null
-		},
-		{
-			key: 'response',
-			label: is_cn ? '响应结果' : 'Response Result',
-			children: null
-		},
-		{
-			key: 'debug',
-			label: is_cn ? '调试信息' : 'Debug Info',
-			children: null
-		}
-	]
+	if (!id) return null
 
 	return (
-		<LogProvider>
-			<ToolContent {...props} />
-			<Log
-				id={props.chat_id}
-				logs={mockLogs}
-				title={is_cn ? '工具调用请求' : 'Tool call request'}
-				tabItems={customTabItems}
-			/>
-		</LogProvider>
+		<ToolContent
+			{...props}
+			id={id}
+			size={size}
+			title={title}
+			done={done}
+			logs={{
+				console: consoleLogs,
+				output: outputLogs
+			}}
+		/>
 	)
 }
 

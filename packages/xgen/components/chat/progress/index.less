@@ -1,4 +1,4 @@
-.tool {
+.progress {
 	color: var(--color_text_grey);
 	font-size: 12px;
 	display: flex;
@@ -9,7 +9,7 @@
 	flex: 1;
 }
 
-.tool_done {
+.progress_done {
 	color: var(--color_text_grey);
 	font-size: 12px;
 	display: flex;
@@ -32,29 +32,15 @@
 	line-height: 1;
 }
 
-.arrowIcon {
-	color: var(--color_text_grey);
-	margin-left: auto;
-	transition: color 0.2s;
-	line-height: 1;
-}
-
-.actions {
-	margin-left: auto;
+.wrapper {
 	display: flex;
-	align-items: center;
-	gap: 8px;
+	flex-direction: column;
+	width: 100%;
 }
 
-.placeholder {
-	color: var(--color_text_grey);
-}
-
-.dots {
-	min-width: 20px;
-	display: inline-block;
-}
-
-.logButton {
-	margin-left: auto;
+.content {
+	display: flex;
+	flex-direction: column;
+	padding: 0;
+	border-radius: 8px;
 }

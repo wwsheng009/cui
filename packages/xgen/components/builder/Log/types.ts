@@ -1,12 +1,19 @@
-export interface ILog {
-	id: string
-	[key: string]: string | Log[]
+export type LogLevel = 'info' | 'warn' | 'error'
+
+export interface LogItem {
+	level: LogLevel
+	message: string
+	datetime: string
+	type?: string // Which component to display the log
+	hideDateTime?: boolean // Whether to hide the datetime
 }
 
-export type LogLevel = 'info' | 'error' | 'warn'
+export interface LogTabItem {
+	key: string
+	label: string
+	children: null
+}
 
-export type Log = {
-	datetime: Date
-	message: string
-	level: LogLevel
+export interface ILog {
+	[key: string]: LogItem[]
 }

@@ -31,6 +31,7 @@ export default class GlobalModel {
 	loading: boolean = false
 	visible_menu: boolean = true
 	hide_nav: boolean = false
+	visible_log_window: boolean = false
 
 	developer = {} as App.Developer
 
@@ -223,6 +224,10 @@ export default class GlobalModel {
 
 	setNeoPlaceholder(placeholder: App.ChatPlaceholder) {
 		this.neo.placeholder = placeholder
+	}
+
+	setVisibleLogWindow(visible: boolean) {
+		this.visible_log_window = visible
 	}
 
 	updateMenuStatus(itemkey_or_pathname: string) {

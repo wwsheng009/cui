@@ -1,5 +1,6 @@
 import { App, Action } from '@/types'
 import { formatToMDX } from './utils'
+import { MergePropsParams, MessageLog, ProcessAIChatDataParams } from './types'
 
 /**
  * Merge messages with the same ID into consolidated messages
@@ -13,6 +14,7 @@ export const mergeMessages = (parsedContent: any[], baseMessage: any): App.ChatI
 
 	// Process messages in original order
 	parsedContent.forEach((item, index) => {
+		item.done = true
 		if (!item.id) {
 			// For items without ID, add them directly
 			let text = ''
@@ -43,8 +45,11 @@ export const mergeMessages = (parsedContent: any[], baseMessage: any): App.ChatI
 			let newText = ''
 			if (item.type === 'think' || item.type === 'tool') {
 				newText = (item as any).props?.['text'] || ''
-
-				prevMessage.text = formatToMDX(prevMessage.text + '\n' + newText, {
+				const tool_id = item.props?.id || item.tool_id || ''
+				const begin = item.props?.begin || item.begin || 0
+				const end = item.props?.end || item.end || 0
+				const props = { ...(item.props || {}), id: tool_id, begin, end }
+				prevMessage.text = formatToMDX(props, prevMessage.text + '\n' + newText, {
 					think: { pending: false },
 					tool: { pending: false }
 				})
@@ -70,11 +75,15 @@ export const mergeMessages = (parsedContent: any[], baseMessage: any): App.ChatI
 			// First time seeing this ID
 			if (item.type === 'think' || item.type === 'tool') {
 				let text = (item as any).props?.['text'] || ''
+				const tool_id = item.props?.id || item.tool_id || ''
+				const begin = item.props?.begin || item.begin || 0
+				const end = item.props?.end || item.end || 0
+				const props = { ...(item.props || {}), id: tool_id, begin, end }
 				const newMessage = {
 					...baseMessage,
 					...item,
 					type: 'text',
-					text: formatToMDX(text, {
+					text: formatToMDX(props, text, {
 						think: { pending: false },
 						tool: { pending: false }
 					})
@@ -96,6 +105,17 @@ export const mergeMessages = (parsedContent: any[], baseMessage: any): App.ChatI
 			processedIds.set(item.id, res.length - 1)
 		}
 	})
+
+	// Set previous_assistant_id for each message
+	for (let i = 1; i < res.length; i++) {
+		if (!res[i].is_neo) continue
+		const current = res[i] as App.ChatAI
+		const previous = res[i - 1] as App.ChatAI
+		if (previous.is_neo && previous.assistant_id) {
+			current.previous_assistant_id = previous.assistant_id
+		}
+	}
+
 	return res
 }
 
@@ -180,57 +200,6 @@ export const getContent = (
 }
 
 /**
- * Interface for parameters needed to process AI chat data
- */
-export interface ProcessAIChatDataParams {
-	// Raw data and content
-	/** Raw data string from event source */
-	data: string
-	/** Current accumulated content */
-	content: string
-
-	// Messages and assistant information
-	/** Array of chat messages */
-	messages: Array<App.ChatInfo>
-	/** Object to track assistant information */
-	last_assistant: {
-		assistant_id: string | null
-		assistant_name: string | null
-		assistant_avatar: string | null
-	}
-
-	// State update functions
-	/** Function to update assistant information */
-	updateAssistant: (assistant: App.AssistantSummary) => void
-	/** Function to update messages state */
-	setMessages: (messages: Array<App.ChatInfo>) => void
-	/** Function to update loading state */
-	setLoading: (loading: boolean) => void
-
-	// Event source and handlers
-	/** EventSource instance for SSE connection */
-	eventSource: EventSource
-	/** Function to handle title generation */
-	handleTitleGeneration: (messages: Array<App.ChatInfo>, chat_id: string) => void
-
-	// Configuration
-	/** Current chat ID */
-	chat_id: string | undefined
-	/** Default assistant ID */
-	defaultAssistantId: string | undefined
-
-	// Action handling
-	/** Action dispatcher function */
-	onAction: (params: {
-		namespace: string
-		primary: string
-		data_item: any
-		it: { action: Array<Action.ActionParams>; title: string; icon: string }
-		extra?: any
-	}) => void
-}
-
-/**
  * Process AI chat data from event source
  * This function handles the core logic for processing streaming AI responses,
  * including handling actions, updating messages, and managing assistant information.
@@ -240,7 +209,7 @@ export interface ProcessAIChatDataParams {
  */
 export const processAIChatData = (params: ProcessAIChatDataParams): string => {
 	const {
-		data,
+		formated_data,
 		content,
 		messages,
 		last_assistant,
@@ -269,12 +238,11 @@ export const processAIChatData = (params: ProcessAIChatDataParams): string => {
 		}
 	}
 
-	// Parse data from event source
-	const formated_data = JSON.parse(data) as App.ChatAI
-	if (!formated_data) return content
-
 	// Extract data properties from the parsed message
 	const {
+		tool_id,
+		begin,
+		end,
 		text,
 		props,
 		type,
@@ -334,6 +302,12 @@ export const processAIChatData = (params: ProcessAIChatDataParams): string => {
 
 	// Create new message if is_new flag is set
 	if (is_new) {
+		// Mark the last message as done
+		if (messages.length > 0 && (messages[messages.length - 1] as App.ChatInfo).is_neo) {
+			messages[messages.length - 1] = { ...messages[messages.length - 1], done: true }
+		}
+
+		// Create new message
 		messages.push({ ...formated_data, is_neo: true })
 	}
 
@@ -356,6 +330,20 @@ export const processAIChatData = (params: ProcessAIChatDataParams): string => {
 	current_answer.assistant_avatar = last_assistant.assistant_avatar || undefined
 	current_answer.type = type || current_answer.type || 'text'
 
+	// Set previous assistant id
+	if (messages.length > 2) {
+		// Get previous message
+		const previous_message = messages[messages.length - 2] as App.ChatAI
+		if (previous_message.assistant_id) {
+			current_answer.previous_assistant_id = previous_message.assistant_id
+		}
+	}
+
+	// Update tool ID
+	if (tool_id) {
+		current_answer.tool_id = tool_id
+	}
+
 	// Update assistant information in the global state if all required fields are present
 	if (last_assistant.assistant_id && last_assistant.assistant_name && last_assistant.assistant_avatar) {
 		updateAssistant({
@@ -377,13 +365,26 @@ export const processAIChatData = (params: ProcessAIChatDataParams): string => {
 			current_answer.props = props
 		}
 
+		// Check previous messages if is neo not mark as done, when done == true break
+		let fix_done = false
+		for (let i = messages.length - 1; i >= 0; i--) {
+			const message = messages[i]
+			if (message.is_neo) {
+				if ((message as App.ChatAI).done) {
+					break
+				}
+				fix_done = true
+				messages[i] = { ...message, done: true }
+			}
+		}
+
 		// Generate title for the first message if needed
 		if (isFirstMessage(messages) && chat_id) {
 			handleTitleGeneration(messages, chat_id)
 		}
 
-		// Update messages state if there's text or props
-		if ((text && text.length > 0) || props) {
+		// Update messages state if there's text or props or fix_done
+		if ((text && text.length > 0) || props || fix_done) {
 			setMessages([...messages])
 		}
 		setLoading(false)
@@ -395,9 +396,7 @@ export const processAIChatData = (params: ProcessAIChatDataParams): string => {
 	if (!text && !props && !type) return updatedContent
 
 	// Update props if available
-	if (props) {
-		current_answer.props = props
-	}
+	props && mergeProps(current_answer, props, { type, delta, begin, end })
 
 	// Handle text content processing
 	const tokens: Record<string, { pending: boolean }> = {
@@ -405,6 +404,7 @@ export const processAIChatData = (params: ProcessAIChatDataParams): string => {
 		tool: { pending: false }
 	}
 	if (text) {
+		const tool_id = current_answer.tool_id || ''
 		current_answer.text = updatedContent
 
 		// Handle delta (incremental) message updates
@@ -412,6 +412,7 @@ export const processAIChatData = (params: ProcessAIChatDataParams): string => {
 			current_answer.text = updatedContent
 			if (type == 'think' || type == 'tool') {
 				current_answer.type = 'text'
+				current_answer.props = { ...(current_answer.props || {}), id: tool_id, begin, end }
 				// Check if the tag is closed, add closing tag if needed
 				if (updatedContent.indexOf(`</${type}>`) == -1) {
 					tokens[type].pending = true
@@ -421,7 +422,8 @@ export const processAIChatData = (params: ProcessAIChatDataParams): string => {
 		}
 
 		// Format the text to be valid MDX with proper tag handling
-		current_answer.text = formatToMDX(current_answer.text, tokens)
+		const props = { ...(current_answer.props || {}), id: tool_id, begin, end }
+		current_answer.text = formatToMDX(props, current_answer.text, tokens)
 	}
 
 	// Update the messages state with the modified current answer
@@ -481,4 +483,66 @@ export const isFirstMessage = (messages: App.ChatInfo[]) => {
 	}
 
 	return true
+}
+
+/**
+ * Merge props with current answer
+ * @param current_answer Current answer
+ * @param props Props to merge
+ * @param params Parameters for merging
+ */
+export const mergeProps = (current_answer: App.ChatAI, props: Record<string, any>, params: MergePropsParams) => {
+	const { type, delta, begin: begin_param, end: end_param } = params
+	let { begin, end, status } = current_answer.props || {}
+
+	// Default begin and end
+	begin = begin || begin_param
+	end = end || end_param
+
+	// Merge props
+	if (type != 'text' && type != 'error' && props.id && delta) {
+		current_answer.type = type
+		const current_props = current_answer.props || {}
+		let break_line = false
+
+		// Merge title
+		let title = current_answer.props?.title || ''
+		if (props.title) {
+			break_line = props.title.startsWith('\r')
+			title = props.title.replace('\r', '')
+		}
+
+		// Merge text
+		let text = current_answer.props?.text || ''
+		if (props.text) {
+			text = text + props.text
+		}
+
+		// Merge logs
+		const logs: MessageLog[] = current_props.logs || [{ title, text, begin, end, status }]
+
+		// New Log title with \r
+		if (break_line) {
+			// Update last log end
+			if (logs[logs.length - 1]) {
+				logs[logs.length - 1].end = begin
+				logs[logs.length - 1].status = 'done'
+			}
+
+			text = props.text || ''
+			logs.push({ title, text, begin, end })
+		} else {
+			logs[logs.length - 1] = { title, text, begin, end }
+		}
+
+		// Other props
+		const new_props = { ...current_props, ...props, text, title, logs }
+		current_answer.props = new_props
+	} else {
+		// No need to merge
+		const title = current_answer.props?.title || ''
+		const text = current_answer.props?.text || ''
+		const logs: MessageLog[] = current_answer.props?.logs || [{ title, text, begin, end, status }]
+		current_answer.props = { ...props, text, title, logs }
+	}
 }

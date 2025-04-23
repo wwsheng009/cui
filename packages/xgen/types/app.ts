@@ -25,6 +25,7 @@ export declare namespace App {
 
 	type ChatMessageType =
 		| 'text'
+		| 'plan'
 		| 'image'
 		| 'audio'
 		| 'video'
@@ -106,6 +107,9 @@ export declare namespace App {
 		new: boolean
 		text: string
 		id?: string
+		tool_id?: string // tool_id for the message
+		begin?: number // begin for the message
+		end?: number // end for the message
 		type?: ChatMessageType
 		function?: string
 		arguments?: string
@@ -113,6 +117,7 @@ export declare namespace App {
 		assistant_id?: string
 		assistant_name?: string
 		assistant_avatar?: string
+		previous_assistant_id?: string // previous assistant_id for the message
 		// actions?: Array<Action.ActionParams>
 		done: boolean // Whether the message is done
 		delta?: boolean // Whether the message is a delta message
