@@ -38,6 +38,7 @@ export declare namespace App {
 		| 'tool'
 		| 'think'
 		| 'loading'
+		| 'result'
 		| 'action'
 
 	type ChatCmd = {
@@ -325,6 +326,7 @@ export declare namespace App {
 	interface User {
 		email: string
 		id: number
+		avatar?: string
 		mobile?: any
 		name: string
 		type: string
