@@ -123,7 +123,6 @@ const AIChat = (props: AIChatProps) => {
 		primary: '',
 		data_item: {}
 	})
-	const { search } = useLocation()
 	const urlParams = new URLSearchParams(search)
 	const assistantIdFromUrl = urlParams.get('assistant_id')
 
