@@ -233,6 +233,12 @@ export declare namespace App {
 			prversion?: string
 		}
 
+		/** CUI version */
+		cui?: {
+			version?: string
+			prversion?: string
+		}
+
 		/** Application developer */
 		developer?: Developer
 
@@ -349,7 +355,7 @@ export declare namespace App {
 	interface Menus {
 		items: Array<App.Menu> // Main menu
 		setting: Array<App.Menu> // Setting menu
-		quick: Array<App.Menu> // Quick menu
+		quick?: Array<App.Menu> // Quick menu
 	}
 
 	interface ChatAttachment {
