@@ -33,9 +33,9 @@ const hook = (
 			operation_col['fixed'] = 'right'
 		}
 
-		if (operation.fold) operation_col['width'] = 60
-		if (operation.width) operation_col['width'] = operation.width
-		if (!operation.hide) list_columns.push(operation_col)
+		if (operation?.fold) operation_col['width'] = 60
+		if (operation?.width) operation_col['width'] = operation?.width
+		if (!operation?.hide) list_columns.push(operation_col)
 
 		operation_col['render'] = (_, data_item) => {
 			return getOperation(namespace, primary, operation, data_item)

@@ -13,11 +13,11 @@ export default (
 	const props_actions: IPropsActions = {
 		namespace,
 		primary,
-		actions: operation.actions || [],
+		actions: operation?.actions || [],
 		data_item
 	}
 
-	if (operation.fold) {
+	if (operation?.fold) {
 		return <FoldActions {...props_actions}></FoldActions>
 	} else {
 		return <UnfoldActions {...props_actions}></UnfoldActions>

@@ -47,8 +47,8 @@ export default class Model {
 		this.rendered = true
 		this.setting = res
 
-		if (res.header.preset?.batch?.columns && res.header.preset?.batch?.columns?.length) {
-			this.batch_columns = this.column_utils.reduce(res.header.preset.batch.columns, res.fields.table)
+		if (res.header?.preset?.batch?.columns && res.header?.preset?.batch?.columns?.length) {
+			this.batch_columns = this.column_utils.reduce(res.header?.preset.batch.columns, res.fields.table)
 		} else {
 			this.batch_columns = []
 		}
@@ -59,7 +59,7 @@ export default class Model {
 			this.filter_columns = []
 		}
 
-		if (res.table.columns && res.table.columns?.length) {
+		if (res.table?.columns && res.table?.columns?.length) {
 			this.table_columns = this.column_utils.reduce(res.table.columns, res.fields.table)
 		} else {
 			this.table_columns = []
