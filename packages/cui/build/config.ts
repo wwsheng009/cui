@@ -13,6 +13,7 @@ export const env = process.env.NODE_ENV as 'development' | 'production'
 export const base = `/${process.env.BASE}/`
 
 export const proxy = {
+	'/v1': { target: 'http://127.0.0.1:5099', changeOrigin: true },
 	'/api': { target: 'http://127.0.0.1:5099', changeOrigin: true },
 	'/components': { target: 'http://127.0.0.1:5099', changeOrigin: true },
 	'/assets': { target: 'http://127.0.0.1:5099', changeOrigin: true },
@@ -21,6 +22,7 @@ export const proxy = {
 	'/dashboard': { target: 'http://127.0.0.1:5099', changeOrigin: true },
 	'/docs': { target: 'http://127.0.0.1:5099', changeOrigin: true },
 	'/tools': { target: 'http://127.0.0.1:5099', changeOrigin: true },
+	'/brands': { target: 'http://127.0.0.1:5099', changeOrigin: true },
 	'/admin': { target: 'http://127.0.0.1:5099', changeOrigin: true }
 }
 

@@ -1,127 +1,422 @@
 import type { Component } from '@/types'
-import type { ImageProps } from 'antd'
 import { GetPreviewURL } from '@/components/edit/Upload/request/storages/utils'
 import { getToken } from '@/knife'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Button } from 'antd'
+import { FullscreenOutlined, FullscreenExitOutlined, DownloadOutlined } from '@ant-design/icons'
+import { getLocale } from '@umijs/max'
 import clsx from 'clsx'
 import styles from './index.less'
+import { FileAPI } from '@/openapi'
 
-interface IProps extends Component.PropsViewComponent, ImageProps {
+// Import viewers
+import Image from './viewers/Image'
+import Video from './viewers/Video'
+import Audio from './viewers/Audio'
+import Text from './viewers/Text'
+import Pdf from './viewers/Pdf'
+import Docx from './viewers/Docx'
+import Pptx from './viewers/Pptx'
+
+import Unsupported from './viewers/Unsupported'
+
+interface IProps extends Component.PropsViewComponent {
 	previewURL?: string
 	useAppRoot?: boolean
 	api?: string | { api: string; params: string }
+	showMaximize?: boolean
+	src?: string
+	file?: File
+	content?: string // 新增：直接传递文本内容
+	contentType?: string
+	style?: React.CSSProperties
+	// 新增支持通过 file ID 和 uploader 加载文件
+	fileID?: string
+	uploader?: string
 }
 
 const Index = (props: IProps) => {
-	const { __value, onSave, api, useAppRoot, previewURL, style, ...rest_props } = props
+	const {
+		__value,
+		onSave,
+		api,
+		useAppRoot,
+		previewURL,
+		style,
+		showMaximize = true,
+		src,
+		file,
+		content,
+		contentType,
+		fileID,
+		uploader,
+		...rest_props
+	} = props
 
 	const [url, setUrl] = useState<string>()
+	const [maximized, setMaximized] = useState(false)
+	const [fileMetadata, setFileMetadata] = useState<any>()
+	const [loading, setLoading] = useState(false)
 
 	const token = getToken()
+
+	// Load file by ID if fileID is provided
+	useEffect(() => {
+		if (!fileID) return
+
+		const loadFileById = async () => {
+			setLoading(true)
+			try {
+				const fileApi = new FileAPI(window.$app.openapi)
+
+				// 获取文件元数据
+				const metadataResponse = await fileApi.Retrieve(fileID, uploader)
+				if (window.$app.openapi.IsError(metadataResponse)) {
+					console.error('Failed to load file metadata:', metadataResponse.error)
+					return
+				}
+				setFileMetadata(metadataResponse.data)
+
+				// 下载文件内容
+				const downloadResponse = await fileApi.Download(fileID, uploader)
+				if (window.$app.openapi.IsError(downloadResponse)) {
+					console.error('Failed to download file:', downloadResponse.error)
+					return
+				}
+
+				// 创建 blob URL
+				if (downloadResponse.data) {
+					const blobUrl = URL.createObjectURL(downloadResponse.data)
+					setUrl(blobUrl)
+				}
+			} catch (error) {
+				console.error('Failed to load file by ID:', error)
+			} finally {
+				setLoading(false)
+			}
+		}
+
+		loadFileById()
+
+		// 清理 blob URL
+		return () => {
+			if (url && url.startsWith('blob:')) {
+				URL.revokeObjectURL(url)
+			}
+		}
+	}, [fileID, uploader])
+
+	// Generate preview URL if API is provided
 	useMemo(() => {
-		if (!api) return
-		const url = GetPreviewURL({
+		if (!api || fileID) return // 如果有 fileID，优先使用 fileID 加载
+		const generatedUrl = GetPreviewURL({
 			response: { path: __value || '' },
 			previewURL,
 			useAppRoot,
 			token,
 			api
 		})
-		setUrl(url)
-	}, [api, previewURL, useAppRoot])
+		setUrl(generatedUrl)
+	}, [api, previewURL, useAppRoot, __value, token, fileID])
 
-	if (!__value || (Array.isArray(__value) && __value.length == 0)) return <span>-</span>
-
-	// 获取文件扩展名
-	const getFileExtension = (path: string) => {
-		const lastDot = path.lastIndexOf('.')
-		return lastDot > 0 ? path.substring(lastDot + 1).toLowerCase() : ''
+	// Get file source (priority: src > url > file > __value)
+	const getFileSource = (): string | undefined => {
+		if (src) return src
+		if (url) return url
+		if (file) return URL.createObjectURL(file)
+		if (__value && typeof __value === 'string') return __value
+		return undefined
 	}
 
-	const fileExtension = getFileExtension(__value)
-	const fileName = __value.split('/').pop() || __value
+	// Get file name
+	const getFileName = (): string => {
+		if (file?.name) return file.name
+		if (fileMetadata?.original_filename) return fileMetadata.original_filename
+		if (fileMetadata?.name) return fileMetadata.name
+		if (__value && typeof __value === 'string') {
+			return __value.split('/').pop() || __value
+		}
+		if (src) {
+			return src.split('/').pop() || src
+		}
+		return 'unknown'
+	}
 
-	// 模拟长文档内容
-	const generateLongContent = () => {
-		const paragraphs = [
-			'这是文档的第一段内容。本文档用于演示文件查看器的滚动功能。当内容超过容器高度时，会自动显示滚动条。',
-			'第二段：在实际使用中，这里会显示真实的文档内容，比如PDF渲染结果、图片预览、文本内容等。FileViewer组件需要支持多种文件格式的预览。',
-			'第三段：支持的文件类型包括但不限于：PDF文档、Office文档（Word、Excel、PowerPoint）、图片文件（JPG、PNG、GIF等）、文本文件、代码文件等。',
-			'第四段：对于PDF文件，会使用PDF.js进行渲染；对于图片文件，直接使用img标签显示；对于Office文档，可能需要转换为PDF或使用在线预览服务。',
-			'第五段：文档预览功能还应该支持缩放、旋转、全屏等操作。用户可以通过工具栏来控制文档的显示方式。',
-			'第六段：为了提升用户体验，预览组件还应该支持键盘快捷键，比如Ctrl+滚轮缩放、方向键翻页等。',
-			'第七段：在移动端设备上，还需要支持触摸手势，比如双指缩放、滑动翻页等操作。',
-			'第八段：安全性也是重要考虑因素，预览功能不应该暴露原始文件路径，并且需要进行访问权限验证。',
-			'第九段：性能优化方面，大文件应该支持分页加载或懒加载，避免一次性加载整个文档导致页面卡顿。',
-			'第十段：错误处理也很重要，当文件无法预览时，应该显示友好的错误提示，并提供替代方案如下载文件。'
+	// Get file extension
+	const getFileExtension = (fileName: string): string => {
+		const lastDot = fileName.lastIndexOf('.')
+		return lastDot > 0 ? fileName.substring(lastDot + 1).toLowerCase() : ''
+	}
+
+	// Get file type from extension or contentType
+	const getFileType = (): string => {
+		const actualContentType = contentType || fileMetadata?.content_type
+		if (actualContentType) {
+			if (actualContentType.startsWith('image/')) return 'image'
+			if (actualContentType.startsWith('video/')) return 'video'
+			if (actualContentType.startsWith('audio/')) return 'audio'
+
+			// Specific text types first, before generic text/
+			if (actualContentType === 'text/markdown') return 'text'
+			if (actualContentType === 'text/html') return 'text'
+			if (actualContentType === 'text/css') return 'text'
+			if (actualContentType === 'text/javascript') return 'text'
+			if (actualContentType === 'application/json') return 'text'
+			if (actualContentType === 'application/xml') return 'text'
+			if (actualContentType === 'text/xml') return 'text'
+
+			// Generic text types
+			if (actualContentType.startsWith('text/')) return 'text'
+
+			// Document types
+			if (actualContentType === 'application/pdf') return 'pdf'
+			if (actualContentType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+				return 'docx'
+			if (actualContentType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
+				return 'pptx'
+		}
+
+		const fileName = getFileName()
+		const extension = getFileExtension(fileName)
+
+		// Image extensions
+		const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'ico']
+		if (imageExts.includes(extension)) return 'image'
+
+		// Video extensions
+		const videoExts = ['mp4', 'avi', 'mov', 'mkv', 'flv', 'webm', 'wmv']
+		if (videoExts.includes(extension)) return 'video'
+
+		// Audio extensions
+		const audioExts = ['mp3', 'wav', 'aac', 'flac', 'ogg', 'm4a', 'wma']
+		if (audioExts.includes(extension)) return 'audio'
+
+		// PDF extensions
+		if (extension === 'pdf') return 'pdf'
+
+		// Office document extensions
+		if (extension === 'docx') return 'docx'
+		if (extension === 'pptx') return 'pptx'
+
+		// Text extensions
+		const textExts = [
+			'txt',
+			'md',
+			'log',
+			'ini',
+			'cfg',
+			'csv',
+			'json',
+			'jsonc',
+			'yaml',
+			'yml',
+			'xml',
+			'py',
+			'js',
+			'ts',
+			'jsx',
+			'tsx',
+			'java',
+			'cpp',
+			'go',
+			'sh',
+			'html',
+			'css',
+			'yao',
+			'sql',
+			'php',
+			'rb',
+			'rs',
+			'c',
+			'h'
 		]
+		if (textExts.includes(extension)) return 'text'
 
-		return paragraphs.map((paragraph, index) => (
-			<div key={index} className={styles.paragraph}>
-				<h4>段落 {index + 1}</h4>
-				<p>{paragraph}</p>
-				{index < paragraphs.length - 1 && <hr />}
+		return 'unsupported'
+	}
+
+	const fileSource = getFileSource()
+	const fileName = getFileName()
+	const fileType = getFileType()
+
+	// Handle maximize state
+	const handleMaximize = () => {
+		setMaximized(!maximized)
+	}
+
+	// When maximized, handle Escape to exit maximize and prevent modal close
+	useEffect(() => {
+		if (!maximized) return
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (event.key === 'Escape' || event.code === 'Escape') {
+				event.preventDefault()
+				event.stopPropagation()
+				setMaximized(false)
+			}
+		}
+
+		window.addEventListener('keydown', handleKeyDown, true)
+		return () => {
+			window.removeEventListener('keydown', handleKeyDown, true)
+		}
+	}, [maximized])
+
+	// Return loading state
+	if (loading) {
+		return (
+			<div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
+				{getLocale() === 'zh-CN' ? '加载中...' : 'Loading...'}
 			</div>
-		))
+		)
 	}
 
-	const props_image: ImageProps = {
-		preview: false,
-		height: '100%',
-		style: { objectFit: 'cover', ...(style || {}) },
-		...rest_props
+	// Return empty state if no file
+	if (!fileSource && !file) {
+		return (
+			<div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
+				{getLocale() === 'zh-CN' ? '暂无文件内容' : 'No file content'}
+			</div>
+		)
 	}
+
+	// Get language for text files
+	const getLanguage = (fileName: string): string => {
+		// First check MIME type for language detection
+		const actualContentType = contentType || fileMetadata?.content_type
+		if (actualContentType) {
+			if (actualContentType === 'text/markdown') return 'markdown'
+			if (actualContentType === 'text/html') return 'html'
+			if (actualContentType === 'text/css') return 'css'
+			if (actualContentType === 'text/javascript' || actualContentType === 'application/javascript')
+				return 'javascript'
+			if (actualContentType === 'application/json') return 'json'
+			if (actualContentType === 'application/xml' || actualContentType === 'text/xml') return 'xml'
+			if (actualContentType === 'text/x-python') return 'python'
+		}
+
+		// Fallback to extension-based detection
+		const extension = getFileExtension(fileName)
+		const extensionMap: Record<string, string> = {
+			js: 'javascript',
+			jsx: 'javascript',
+			ts: 'typescript',
+			tsx: 'typescript',
+			py: 'python',
+			java: 'java',
+			cpp: 'cpp',
+			c: 'c',
+			go: 'go',
+			rs: 'rust',
+			php: 'php',
+			rb: 'ruby',
+			sh: 'bash',
+			sql: 'sql',
+			css: 'css',
+			scss: 'scss',
+			sass: 'sass',
+			less: 'less',
+			html: 'html',
+			xml: 'xml',
+			json: 'json',
+			jsonc: 'jsonc',
+			yao: 'yao',
+			yaml: 'yaml',
+			yml: 'yaml',
+			md: 'markdown',
+			markdown: 'markdown',
+			txt: 'text',
+			log: 'text'
+		}
+		return extensionMap[extension] || 'text'
+	}
+
+	// 渲染对应的查看器
+	const renderViewer = () => {
+		if (!fileSource && !file && !content) {
+			return <div className={styles.loading}>Loading...</div>
+		}
+
+		// 统一的props传递给所有viewer组件
+		const viewerProps = {
+			src: fileSource,
+			file,
+			content,
+			contentType: contentType || fileMetadata?.content_type,
+			fileName
+		}
+
+		switch (fileType) {
+			case 'image':
+				return <Image {...viewerProps} />
+			case 'video':
+				return <Video {...viewerProps} />
+			case 'audio':
+				return <Audio {...viewerProps} />
+			case 'text':
+				return <Text {...viewerProps} language={getLanguage(fileName)} />
+			case 'pdf':
+				return <Pdf {...viewerProps} />
+			case 'docx':
+				return <Docx {...viewerProps} />
+			case 'pptx':
+				return <Pptx {...viewerProps} />
+			default:
+				return <Unsupported {...viewerProps} />
+		}
+	}
+
+	const locale = getLocale()
+	const is_cn = locale === 'zh-CN'
 
 	return (
-		<div className={clsx([styles._local, styles.debug, 'xgen-file-viewer'])}>
-			<div className={styles.content}>
-				<div className={styles.fileInfo}>
-					<div>
-						<strong>文件路径:</strong> {__value}
-					</div>
-					<div>
-						<strong>文件名:</strong> {fileName}
-					</div>
-					<div>
-						<strong>文件类型:</strong> {fileExtension}
-					</div>
-					{previewURL && (
-						<div>
-							<strong>预览URL:</strong> {previewURL}
-						</div>
-					)}
-					{url && (
-						<div>
-							<strong>生成URL:</strong> {url}
-						</div>
-					)}
-					{api && (
-						<div>
-							<strong>API:</strong> {JSON.stringify(api)}
-						</div>
-					)}
-				</div>
-
-				<div className={styles.separator}></div>
-
-				<div className={styles.documentContent}>
-					<h3>文档正文内容预览</h3>
-					{generateLongContent()}
-
-					<div className={styles.footer}>
-						<p
-							style={{
-								textAlign: 'center',
-								color: '#999',
-								fontSize: '12px',
-								marginTop: '40px'
+		<div className={clsx([styles._local, 'xgen-file-viewer', { [styles.maximized]: maximized }])} style={style}>
+			{/* 统一的工具栏 - 根据条件显示 */}
+			{showMaximize && fileType !== 'unsupported' && (
+				<div className={styles.toolbar}>
+					{/* 显示语言/扩展名标签，保持统一风格 */}
+					<span className={styles.languageTag}>
+						{fileType === 'text'
+							? getLanguage(fileName)
+							: getFileExtension(fileName) || fileType}
+					</span>
+					{/* 统一的下载按钮 - 所有文件类型都支持 */}
+					{fileSource && fileName && (
+						<Button
+							type='text'
+							size='small'
+							icon={<DownloadOutlined />}
+							onClick={() => {
+								const link = document.createElement('a')
+								link.href = fileSource
+								link.download = fileName
+								document.body.appendChild(link)
+								link.click()
+								document.body.removeChild(link)
 							}}
-						>
-							--- 文档结束 ---
-						</p>
-					</div>
+							title={is_cn ? '下载文件' : 'Download File'}
+						/>
+					)}
+					<Button
+						type='text'
+						size='small'
+						icon={maximized ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+						onClick={handleMaximize}
+						title={
+							maximized
+								? is_cn
+									? '退出全屏'
+									: 'Exit Fullscreen'
+								: is_cn
+								? '全屏查看'
+								: 'Fullscreen'
+						}
+					/>
 				</div>
-			</div>
+			)}
+
+			{/* 统一的内容区域 */}
+			<div className={styles.content}>{renderViewer()}</div>
 		</div>
 	)
 }

@@ -18,6 +18,7 @@ const escapeHtml = (text: string) => {
 		.replace(/'/g, '&#039;')
 }
 export default ({ api, studio }: Args) => {
+	studio = false
 	const event_source = useRef<EventSource>()
 	const [messages, setMessages] = useState<Array<App.ChatInfo>>([])
 	const [loading, setLoading] = useState(false)

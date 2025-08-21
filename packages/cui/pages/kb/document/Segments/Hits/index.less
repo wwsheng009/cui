@@ -1,0 +1,272 @@
+// Hits组件样式 - 与Editor组件保持一致的视觉风格
+
+// 加载状态容器
+.loadingContainer {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 200px;
+}
+
+// 空状态容器
+.emptyContainer {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 200px;
+	gap: 12px;
+	color: var(--color_neo_text_secondary);
+
+	:global(.Icon) {
+		color: var(--color_neo_icon_muted);
+	}
+}
+
+// 卡片头部样式（与Editor一致）
+.cardHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 16px;
+	background: var(--color_neo_bg_header);
+	border-bottom: 1px solid var(--color_neo_border_header);
+}
+
+// 与Editor完全一致的样式
+.chunkMeta {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+
+	.chunkNumber {
+		padding: 4px 8px;
+		background: var(--color_neo_bg_selected);
+		color: var(--color_main);
+		font-size: 12px; // 从 10px 增加到 12px
+		border-radius: 4px;
+		font-weight: 600;
+		border: 1px solid var(--color_neo_border_selected);
+		display: flex;
+		align-items: center;
+		gap: 4px;
+	}
+
+	.levelInfo {
+		display: flex;
+		align-items: center;
+		gap: 3px;
+
+		// 确保图标颜色与文字颜色一致
+		:global(.Icon) {
+			color: inherit !important;
+		}
+	}
+}
+
+.metaInfo {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	flex-wrap: wrap;
+
+	.metaItem {
+		font-size: 12px;
+		color: #666;
+		white-space: nowrap;
+		display: flex;
+		align-items: center;
+		gap: 4px;
+
+		.metaNumber {
+			color: var(--color_main);
+			font-weight: 600;
+			font-size: 13px;
+		}
+	}
+}
+
+// 主体内容区域
+.hitsBody {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	background: var(--color_neo_bg_content);
+	min-height: 0; // 确保 flex 子元素可以缩小
+	position: relative; // 为滚动提供定位上下文
+
+	// 确保表格组件占满剩余空间
+	> div {
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden; // 防止内容溢出
+	}
+}
+
+.hitsSection {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.contentPlaceholder {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	padding: 40px;
+}
+
+// 加载状态
+.loadingState {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	gap: 12px;
+	color: var(--color_neo_text_secondary);
+	padding: 40px;
+}
+
+// 空状态
+.emptyState {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	gap: 12px;
+	color: var(--color_neo_text_secondary);
+	padding: 40px;
+}
+
+// 底部区域
+.hitsFooter {
+	display: flex;
+	align-items: center;
+	padding: 12px 20px;
+	background: var(--color_neo_bg_header);
+	border-top: 1px solid var(--color_neo_border_header);
+	flex-shrink: 0;
+}
+
+// 表格内容样式
+.scenarioTag {
+	padding: 2px 8px;
+	background: var(--color_neo_bg_selected);
+	color: var(--color_main);
+	border-radius: 12px;
+	font-size: 11px;
+	font-weight: 500;
+	border: 1px solid var(--color_neo_border_selected);
+}
+
+.sourceText {
+	font-size: 11px;
+	color: var(--color_neo_text_secondary);
+	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+	background: var(--color_neo_bg_field);
+	padding: 2px 6px;
+	border-radius: 4px;
+}
+
+.queryText {
+	font-size: 12px;
+	color: var(--color_neo_text_primary);
+	line-height: 1.4;
+}
+
+.timestamp {
+	font-size: 11px;
+	color: var(--color_neo_text_tertiary);
+	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.contextCode {
+	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+	font-size: 10px;
+	line-height: 1.3;
+	max-height: 120px;
+	overflow-y: auto;
+	padding: 8px;
+
+	pre {
+		margin: 0;
+		padding: 0;
+		background: transparent;
+		border: none;
+		font-family: inherit;
+		font-size: inherit;
+		line-height: inherit;
+		color: var(--color_neo_text_secondary);
+		white-space: pre-wrap;
+		word-wrap: break-word;
+		overflow-wrap: break-word;
+
+		// JSON 语法高亮 - 使用项目主题变量
+		:global(.json-key) {
+			color: var(--color_main);
+			font-weight: 500;
+		}
+
+		:global(.json-string) {
+			color: var(--color_success);
+		}
+
+		:global(.json-number) {
+			color: var(--color_warning);
+		}
+
+		:global(.json-boolean) {
+			color: var(--color_danger);
+		}
+
+		:global(.json-null) {
+			color: var(--color_text_grey);
+		}
+	}
+
+	// 滚动条样式
+	&::-webkit-scrollbar {
+		width: 4px;
+	}
+
+	&::-webkit-scrollbar-thumb {
+		background: var(--color_border);
+		border-radius: 2px;
+	}
+
+	&::-webkit-scrollbar-track {
+		background: transparent;
+	}
+}
+
+// 深色模式适配
+[data-theme='dark'] {
+	.loadingState,
+	.emptyState,
+	.contentPlaceholder {
+		color: var(--color_neo_text_secondary);
+	}
+
+	.scenarioTag {
+		background: var(--color_neo_bg_selected);
+		border-color: var(--color_neo_border_selected);
+	}
+
+	.sourceText {
+		background: var(--color_neo_bg_field);
+		color: var(--color_neo_text_secondary);
+	}
+
+	.contextCode {
+		pre {
+			color: var(--color_neo_text_secondary);
+		}
+	}
+}

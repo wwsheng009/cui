@@ -10,6 +10,7 @@ import { local } from '@yaoapp/storex'
 
 import type { AvatarFullConfig } from 'react-nice-avatar'
 import type { App, LocaleMessages } from '@/types'
+import { OpenAPI, OpenAPIConfig, UserInfo } from '@/openapi'
 
 @singleton()
 export default class GlobalModel {
@@ -21,7 +22,10 @@ export default class GlobalModel {
 	connectors = {} as App.Connectors
 	locale_messages = {} as LocaleMessages
 	app_info = {} as App.Info
+	openapi = {} as OpenAPIConfig
+	kb = {} as any // TODO: add Knowledge Base Config
 	user = (local.user || {}) as App.User
+	userInfo = (local.userInfo || null) as UserInfo | null
 	menus = (local.menus || { items: [], setting: {}, quick: [] }) as App.Menus
 	menu = (local.menu || []) as Array<App.Menu>
 
@@ -62,8 +66,14 @@ export default class GlobalModel {
 
 		this.app_info = res
 
+		// OpenAPI Config
+
 		// API Prefix
 		window.$app.api_prefix = res.apiPrefix || '__yao'
+
+		// OpenAPI Config
+		window.$app.openapi = res.openapi ? new OpenAPI(res.openapi) : new OpenAPI({ baseURL: '/v1' })
+		window.$app.kb = res.kb || {}
 
 		// Storage
 		local.remote_cache = res.optional?.remoteCache ?? true
@@ -233,6 +243,24 @@ export default class GlobalModel {
 
 	setNeoPlaceholder(placeholder: App.ChatPlaceholder) {
 		this.neo.placeholder = placeholder
+	}
+
+	setUserInfo(userInfo: UserInfo | null) {
+		this.userInfo = userInfo
+		if (userInfo) {
+			// Store simplified user info in localStorage for persistence
+			const persistentUserInfo = {
+				user_id: userInfo.user_id,
+				name: userInfo.name,
+				picture: userInfo.picture,
+				scope: userInfo.scope,
+				features: userInfo.features
+			}
+			console.log('persistentUserInfo', persistentUserInfo)
+			local.userInfo = persistentUserInfo
+		} else {
+			local.userInfo = null
+		}
 	}
 
 	setVisibleLogWindow(visible: boolean) {

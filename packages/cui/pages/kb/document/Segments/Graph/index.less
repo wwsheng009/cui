@@ -1,0 +1,192 @@
+// Graph 组件样式，与 Editor 保持一致的结构和风格
+
+// 卡片头部样式（与 Editor 一致）
+.cardHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 16px; // 与 Editor 保持一致的 padding
+	background: var(--color_neo_bg_header);
+	border-bottom: 1px solid var(--color_neo_border_header);
+}
+
+.chunkMeta {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.chunkNumber {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	background: var(--color_neo_bg_selected);
+	color: var(--color_main);
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-size: 12px;
+	font-weight: 600;
+	border: 1px solid var(--color_neo_border_selected);
+}
+
+.levelInfo {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+
+	// 确保图标颜色与文字颜色一致
+	:global(.Icon) {
+		color: inherit !important;
+	}
+}
+
+.metaInfo {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.metaItem {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 12px;
+	color: var(--color_neo_text_secondary);
+}
+
+.metaNumber {
+	font-weight: 600;
+	color: var(--color_main);
+	font-size: 13px;
+}
+
+.actionSection {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+// 重新提取按钮样式
+.extractButton {
+	display: flex !important;
+	align-items: center !important;
+	gap: 4px !important;
+	height: 28px !important;
+	padding: 0 12px !important;
+	border-radius: 4px !important;
+	font-size: 12px !important;
+	font-weight: 500 !important;
+
+	// 确保图标颜色与文字颜色一致
+	:global(.Icon) {
+		color: inherit !important;
+	}
+
+	&:hover {
+		transform: scale(1.02);
+
+		:global(.Icon) {
+			color: inherit !important;
+		}
+	}
+
+	&:active {
+		transform: scale(0.98);
+	}
+}
+
+// 主体区域
+.graphBody {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	min-height: 0; // 确保 flex 子元素可以缩小
+	// 移除所有内边距，让图谱完全铺满
+}
+
+.graphSection {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	background: var(--color_neo_bg_content); // 与 Editor 保持一致的背景色
+	transition: all 0.2s ease;
+	min-height: 0; // 确保 flex 子元素可以缩小
+	padding: 0; // 确保没有内边距
+	margin: 0; // 确保没有外边距
+
+	&:hover {
+		background: var(--color_neo_bg_field_hover);
+	}
+}
+
+// 加载状态
+.loadingState {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	gap: 12px;
+	color: var(--color_neo_text_secondary);
+	padding: 40px;
+}
+
+// 空状态
+.emptyState {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	gap: 12px;
+	color: var(--color_neo_text_secondary);
+	padding: 40px;
+}
+
+// 图谱内容区域
+.graphContent {
+	flex: 1; // 改为 flex: 1 而不是固定高度
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	min-height: 0; // 确保可以缩小
+	padding: 0; // 确保没有内边距
+	margin: 0; // 确保没有外边距
+}
+
+// 图谱占位区域
+.graphPlaceholder {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+	gap: 12px;
+	color: var(--color_neo_text_secondary);
+	padding: 40px;
+}
+
+// Footer 区域（预留给关系路径等操作）
+.graphFooter {
+	background: var(--color_neo_bg_header);
+	border-top: 1px solid var(--color_neo_border_header);
+	flex-shrink: 0;
+	// 暂时隐藏，后续有内容时显示
+	display: none;
+
+	&:not(:empty) {
+		display: block;
+		padding: 12px 20px;
+	}
+}
+
+// 深色模式适配
+[data-theme='dark'] {
+	.loadingState,
+	.emptyState,
+	.graphPlaceholder {
+		color: var(--color_neo_text_secondary);
+	}
+}
