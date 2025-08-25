@@ -65,6 +65,88 @@ const ParentsViewer: React.FC<ParentsViewerProps> = ({
 		return parts.join(', ')
 	}
 
+	// 高亮显示文本中的匹配内容
+	const highlightText = (text: string, highlightContent: string) => {
+		if (!highlightContent || highlightContent.trim() === '') {
+			return text
+		}
+
+		// 去除首尾空格
+		const searchText = highlightContent.trim()
+		if (searchText.length < 5) {
+			// 如果搜索文本太短，直接返回原文本
+			return text
+		}
+
+		// 尝试多种匹配策略
+		const strategies = [
+			// 完全匹配
+			searchText,
+			// 去掉标点符号后匹配
+			searchText.replace(/[，。！？；：""''（）【】]/g, ''),
+			// 提取关键词匹配（取前20个字符）
+			searchText.substring(0, 20),
+			// 提取关键词匹配（取后20个字符）
+			searchText.substring(Math.max(0, searchText.length - 20))
+		]
+
+		let bestMatch = null
+		let bestMatchLength = 0
+
+		// 找到最佳匹配策略
+		for (const strategy of strategies) {
+			if (strategy.length < 5) continue
+
+			const escapedText = strategy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+			const regex = new RegExp(escapedText, 'gi')
+
+			if (regex.test(text)) {
+				if (strategy.length > bestMatchLength) {
+					bestMatch = strategy
+					bestMatchLength = strategy.length
+				}
+			}
+		}
+
+		// 如果没有找到匹配，返回原文本
+		if (!bestMatch) {
+			return text
+		}
+
+		// 使用最佳匹配进行高亮
+		const escapedBestMatch = bestMatch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+		const regex = new RegExp(`(${escapedBestMatch})`, 'gi')
+		const parts = text.split(regex)
+
+		return parts.map((part, index) => {
+			if (regex.test(part)) {
+				return (
+					<span key={index} className={localStyles.highlightText}>
+						{part}
+					</span>
+				)
+			}
+			return part
+		})
+	}
+
+	// 渲染带高亮的段落文本
+	const renderSegmentText = (segment: Segment) => {
+		// 如果选中的是父级段落，高亮显示当前段落的内容
+		const isParentSegment = parentsData.some((parent) => parent.id === segment.id)
+		const shouldHighlight = isParentSegment && currentSegment.text
+
+		if (shouldHighlight) {
+			return (
+				<Paragraph className={localStyles.segmentText}>
+					{highlightText(segment.text, currentSegment.text)}
+				</Paragraph>
+			)
+		}
+
+		return <Paragraph className={localStyles.segmentText}>{segment.text}</Paragraph>
+	}
+
 	return (
 		<div className={localStyles.parentsViewer}>
 			{/* 左侧层级菜单 */}
@@ -72,7 +154,7 @@ const ParentsViewer: React.FC<ParentsViewerProps> = ({
 				<div className={localStyles.menuSectionHeader}>
 					<Icon name='material-account_tree' size={16} />
 					<Text strong>{is_cn ? '上下文层级' : 'Context Hierarchy'}</Text>
-					<span className={localStyles.count}>({parentsData.length})</span>
+					<span className={localStyles.count}>({parentsData.length + 1})</span>
 				</div>
 				<div className={localStyles.menuContainer}>
 					{menuData.map((segment) => {
@@ -80,6 +162,7 @@ const ParentsViewer: React.FC<ParentsViewerProps> = ({
 						const segmentIndex = segment.metadata?.chunk_details?.index || 0
 						const isCurrentSegment = segment.id === currentSegment.id
 						const isSelected = selectedSegment?.id === segment.id
+						const isParentSegment = parentsData.some((parent) => parent.id === segment.id)
 
 						return (
 							<div
@@ -120,9 +203,7 @@ const ParentsViewer: React.FC<ParentsViewerProps> = ({
 					<div className={localStyles.segmentCard}>
 						{/* 分段内容 */}
 						<div className={localStyles.segmentContent}>
-							<Paragraph className={localStyles.segmentText}>
-								{selectedSegment.text}
-							</Paragraph>
+							{renderSegmentText(selectedSegment)}
 						</div>
 
 						{/* 分段元信息 */}
@@ -140,7 +221,25 @@ const ParentsViewer: React.FC<ParentsViewerProps> = ({
 									{is_cn ? '命中次数' : 'Hit Count'}:
 								</Text>
 								<Text className={localStyles.metaValue}>
-									{selectedSegment.metadata?.hit_count || 0}
+									{selectedSegment.hit || 0}
+								</Text>
+							</div>
+							<div className={localStyles.metaRow}>
+								<Text type='secondary' className={localStyles.metaLabel}>
+									{is_cn ? '投票统计' : 'Votes'}:
+								</Text>
+								<Text className={localStyles.metaValue}>
+									+{selectedSegment.positive || 0} / -
+									{selectedSegment.negative || 0}
+								</Text>
+							</div>
+							<div className={localStyles.metaRow}>
+								<Text type='secondary' className={localStyles.metaLabel}>
+									{is_cn ? '权重评分' : 'Weight/Score'}:
+								</Text>
+								<Text className={localStyles.metaValue}>
+									{selectedSegment.weight?.toFixed(2) || '0.00'} /{' '}
+									{selectedSegment.score?.toFixed(2) || '0.00'}
 								</Text>
 							</div>
 							<div className={localStyles.metaRow}>

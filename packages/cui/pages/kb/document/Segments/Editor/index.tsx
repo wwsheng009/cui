@@ -1,32 +1,35 @@
 import React, { useState } from 'react'
-import { Button, Tag, Typography, message, Popconfirm } from 'antd'
+import { Tag, Typography, message, Popconfirm } from 'antd'
 import { getLocale } from '@umijs/max'
 import Icon from '@/widgets/Icon'
 import CustomTextArea from './CustomTextArea'
 import WeightEditor from './WeightEditor'
-import { KB, UpdateSegmentsRequest, UpdateWeightRequest, CollectionInfo } from '@/openapi'
+import { Button } from '../../../components'
+import { KB, UpdateSegmentsRequest, UpdateWeightRequest, UpdateWeightsRequest, CollectionInfo } from '@/openapi'
 import styles from '../detail.less'
 import localStyles from './index.less'
 
 const { Text } = Typography
 
 interface ChunkData {
+	// Backend Segment fields
 	id: string
 	text: string
 	weight: number
-	hit_count: number
-	upvotes: number
-	downvotes: number
-	text_length: number
-	max_length: number
-	score?: number
-	metadata?: {
+	score: number
+	hit: number
+	positive: number // Positive vote count (backend field)
+	negative: number // Negative vote count (backend field)
+	metadata: Record<string, any> & {
 		chunk_details?: {
 			depth?: number
 			index?: number
 		}
-		hit_count?: number
 	}
+
+	// Frontend-specific fields for UI
+	text_length: number
+	max_length: number
 }
 
 interface ChunkEditorProps {
@@ -35,37 +38,30 @@ interface ChunkEditorProps {
 	docID: string // 文档ID，用于API调用
 	onSave: (updatedData: Partial<ChunkData>) => void
 	onDelete?: () => void // 删除回调
+	onSavingStateChange?: (isSaving: boolean) => void // 保存状态变化回调
+	onTabSwitch?: (tabType: 'score' | 'hits' | 'vote') => void // 切换标签页回调
 }
 
-const ChunkEditor: React.FC<ChunkEditorProps> = ({ chunkData, collectionInfo, docID, onSave, onDelete }) => {
+const ChunkEditor: React.FC<ChunkEditorProps> = ({
+	chunkData,
+	collectionInfo,
+	docID,
+	onSave,
+	onDelete,
+	onSavingStateChange,
+	onTabSwitch
+}) => {
 	const locale = getLocale()
 	const is_cn = locale === 'zh-CN'
 
 	const [isEditing, setIsEditing] = useState(false)
 	const [editedText, setEditedText] = useState(chunkData.text?.trim() || '')
 	const [editedWeight, setEditedWeight] = useState(chunkData.weight)
+	const [isSaving, setIsSaving] = useState(false)
 
-	const netVotes = chunkData.upvotes - chunkData.downvotes
+	const netVotes = chunkData.positive - chunkData.negative
 
-	// Embedding配置处理函数（使用简化的集合信息）
-	const buildEmbeddingConfig = (collectionInfo: CollectionInfo) => {
-		const config: any = {
-			provider_id: collectionInfo.embedding_provider
-		}
-
-		// 如果有embedding_option，添加option_id
-		if (collectionInfo.embedding_option) {
-			config.option_id = collectionInfo.embedding_option
-		}
-
-		return config
-	}
-
-	// 投票处理
-	const handleVote = (type: 'good' | 'bad') => {
-		// TODO: 实现真实的投票API调用
-		message.success(is_cn ? '投票成功' : 'Vote submitted')
-	}
+	// 投票数据仅用于展示，不再提供点击功能
 
 	// 渲染位置信息
 	const renderPositionInfo = (chunkDetails: any) => {
@@ -109,6 +105,8 @@ const ChunkEditor: React.FC<ChunkEditorProps> = ({ chunkData, collectionInfo, do
 			return
 		}
 
+		setIsSaving(true)
+		onSavingStateChange?.(true) // 通知父组件保存开始
 		try {
 			const kb = new KB(window.$app.openapi)
 
@@ -145,6 +143,9 @@ const ChunkEditor: React.FC<ChunkEditorProps> = ({ chunkData, collectionInfo, do
 			console.error('Save failed:', error)
 			const errorMsg = error instanceof Error ? error.message : is_cn ? '保存失败' : 'Save failed'
 			message.error(errorMsg)
+		} finally {
+			setIsSaving(false)
+			onSavingStateChange?.(false) // 通知父组件保存结束
 		}
 	}
 
@@ -163,8 +164,8 @@ const ChunkEditor: React.FC<ChunkEditorProps> = ({ chunkData, collectionInfo, do
 
 		try {
 			const kb = new KB(window.$app.openapi)
-			const updateWeightRequest: UpdateWeightRequest = {
-				segments: [
+			const updateWeightsRequest: UpdateWeightsRequest = {
+				weights: [
 					{
 						id: chunkData.id,
 						weight: newWeight
@@ -172,7 +173,7 @@ const ChunkEditor: React.FC<ChunkEditorProps> = ({ chunkData, collectionInfo, do
 				]
 			}
 
-			const response = await kb.UpdateWeight(updateWeightRequest)
+			const response = await kb.UpdateWeights(docID, updateWeightsRequest)
 			if (window.$app.openapi.IsError(response)) {
 				throw new Error(response.error?.error_description || 'Failed to update weight')
 			}
@@ -215,15 +216,25 @@ const ChunkEditor: React.FC<ChunkEditorProps> = ({ chunkData, collectionInfo, do
 						{is_cn ? '权重' : 'Weight'}{' '}
 						<WeightEditor value={editedWeight} onChange={handleWeightChange} disabled={false} />
 					</span>
-					<span className={localStyles.metaItem}>
+					<span
+						className={`${localStyles.metaItem} ${
+							onTabSwitch ? localStyles.clickableMetaItem : ''
+						}`}
+						onClick={() => onTabSwitch?.('score')}
+					>
 						{is_cn ? '评分' : 'Score'}{' '}
 						<span className={localStyles.metaNumber}>
 							{chunkData.score?.toFixed(2) || '0.00'}
 						</span>
 					</span>
-					<span className={localStyles.metaItem}>
+					<span
+						className={`${localStyles.metaItem} ${
+							onTabSwitch ? localStyles.clickableMetaItem : ''
+						}`}
+						onClick={() => onTabSwitch?.('hits')}
+					>
 						{is_cn ? '命中' : 'Hits'}{' '}
-						<span className={localStyles.metaNumber}>{chunkData.hit_count || 0}</span>
+						<span className={localStyles.metaNumber}>{chunkData.hit || 0}</span>
 					</span>
 				</div>
 				<div className={localStyles.actionSection}>
@@ -234,9 +245,10 @@ const ChunkEditor: React.FC<ChunkEditorProps> = ({ chunkData, collectionInfo, do
 								size='small'
 								className={localStyles.cancelActionButton}
 								onClick={handleCancel}
+								disabled={isSaving}
+								icon={<Icon name='material-close' size={12} />}
 							>
-								<Icon name='material-close' size={14} />
-								<span>{is_cn ? '取消' : 'Cancel'}</span>
+								{is_cn ? '取消' : 'Cancel'}
 							</Button>
 							<Popconfirm
 								title={
@@ -244,6 +256,7 @@ const ChunkEditor: React.FC<ChunkEditorProps> = ({ chunkData, collectionInfo, do
 										? '确定要删除这个片段吗？删除后将无法恢复！'
 										: 'Are you sure to delete this segment? This action cannot be undone!'
 								}
+								open={isSaving ? false : undefined}
 								onConfirm={async () => {
 									if (!window.$app?.openapi) {
 										message.error(is_cn ? '系统未就绪' : 'System not ready')
@@ -252,7 +265,9 @@ const ChunkEditor: React.FC<ChunkEditorProps> = ({ chunkData, collectionInfo, do
 
 									try {
 										const kb = new KB(window.$app.openapi)
-										const response = await kb.RemoveSegments([chunkData.id])
+										const response = await kb.RemoveSegments(docID, [
+											chunkData.id
+										])
 
 										if (window.$app.openapi.IsError(response)) {
 											throw new Error(
@@ -281,38 +296,45 @@ const ChunkEditor: React.FC<ChunkEditorProps> = ({ chunkData, collectionInfo, do
 								okText={is_cn ? '确认' : 'Confirm'}
 								cancelText={is_cn ? '取消' : 'Cancel'}
 							>
-								<Button size='small' className={localStyles.deleteButton}>
-									<Icon name='material-delete' size={14} />
-									<span>{is_cn ? '删除' : 'Delete'}</span>
+								<Button
+									type='danger'
+									size='small'
+									className={localStyles.deleteButton}
+									disabled={isSaving}
+									icon={<Icon name='material-delete' size={12} />}
+								>
+									{is_cn ? '删除' : 'Delete'}
 								</Button>
 							</Popconfirm>
+							<Button
+								type='primary'
+								size='small'
+								className={localStyles.saveButton}
+								onClick={handleSave}
+								disabled={isSaving}
+								loading={isSaving}
+								loadingIcon='material-refresh'
+								icon={!isSaving ? <Icon name='material-save' size={12} /> : undefined}
+							>
+								{is_cn ? '保存' : 'Save'}
+							</Button>
 						</div>
 					)}
 
-					{/* 主按钮 - Edit/Save */}
-					{!isEditing ? (
+					{/* 主按钮 - 只在非编辑状态显示 Edit 按钮 */}
+					{!isEditing && (
 						<Button
 							type='primary'
 							size='small'
 							className={localStyles.editButton}
-							onClick={(e) => {
+							onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
 								setIsEditing(true)
 								// 移除按钮焦点，防止卡在hover状态
 								e.currentTarget.blur()
 							}}
+							icon={<Icon name='material-edit' size={12} />}
 						>
-							<Icon name='material-edit' size={14} />
-							<span>{is_cn ? '编辑' : 'Edit'}</span>
-						</Button>
-					) : (
-						<Button
-							type='primary'
-							size='small'
-							className={localStyles.saveButton}
-							onClick={handleSave}
-						>
-							<Icon name='material-check' size={14} />
-							<span>{is_cn ? '保存' : 'Save'}</span>
+							{is_cn ? '编辑' : 'Edit'}
 						</Button>
 					)}
 				</div>
@@ -345,15 +367,20 @@ const ChunkEditor: React.FC<ChunkEditorProps> = ({ chunkData, collectionInfo, do
 					{chunkData.metadata?.chunk_details &&
 						renderPositionInfo(chunkData.metadata.chunk_details)}
 				</div>
-				<div className={localStyles.textVoteActions}>
-					<button className={localStyles.voteButton} onClick={() => handleVote('good')}>
+				<div
+					className={`${localStyles.textVoteActions} ${
+						onTabSwitch ? localStyles.clickableVoteActions : ''
+					}`}
+					onClick={() => onTabSwitch?.('vote')}
+				>
+					<div className={localStyles.voteDisplay}>
 						<Icon name='material-thumb_up' size={12} />
-						<span>{chunkData.upvotes}</span>
-					</button>
-					<button className={localStyles.voteButton} onClick={() => handleVote('bad')}>
+						<span>{chunkData.positive}</span>
+					</div>
+					<div className={localStyles.voteDisplay}>
 						<Icon name='material-thumb_down' size={12} />
-						<span>{chunkData.downvotes}</span>
-					</button>
+						<span>{chunkData.negative}</span>
+					</div>
 				</div>
 			</div>
 		</div>

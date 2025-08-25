@@ -39,7 +39,7 @@ const Segments: React.FC<SegmentsProps> = ({
 	const [limit] = useState(500) // 每次加载的数量
 	const [scrollId, setScrollId] = useState<string>('')
 	const [detailVisible, setDetailVisible] = useState(false)
-	const [selectedSegment, setSelectedSegment] = useState<Segment | null>(null)
+	const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null)
 
 	const [hasMore, setHasMore] = useState(false)
 
@@ -300,38 +300,18 @@ const Segments: React.FC<SegmentsProps> = ({
 		}
 	}
 
-	// 投票处理
-	const handleVote = (segmentId: string, type: 'good' | 'bad') => {
-		// TODO: 实现真实的投票API调用
-		setData((prevData) =>
-			prevData.map((segment) =>
-				segment.id === segmentId
-					? {
-							...segment,
-							metadata: {
-								...segment.metadata,
-								[type === 'good' ? 'vote_good' : 'vote_bad']:
-									((segment.metadata?.[
-										type === 'good' ? 'vote_good' : 'vote_bad'
-									] as number) || 0) + 1
-							}
-					  }
-					: segment
-			)
-		)
-		message.success(is_cn ? '投票成功' : 'Vote submitted')
-	}
+	// 投票数据仅用于展示，不再提供点击功能
 
 	// 打开详情模态窗口
 	const handleOpenDetail = (segment: Segment) => {
-		setSelectedSegment(segment)
+		setSelectedSegmentId(segment.id)
 		setDetailVisible(true)
 	}
 
 	// 关闭详情模态窗口
 	const handleCloseDetail = () => {
 		setDetailVisible(false)
-		setSelectedSegment(null)
+		setSelectedSegmentId(null)
 	}
 
 	// 过滤和排序segments (搜索、层级过滤和排序都在前端进行)
@@ -359,24 +339,29 @@ const Segments: React.FC<SegmentsProps> = ({
 			segments = [...segments].sort((a, b) => {
 				switch (sortBy) {
 					case 'hit':
-						// 按命中次数排序 (假设存储在 metadata 中)
-						const hitA = (a.metadata?.hit_count as number) || 0
-						const hitB = (b.metadata?.hit_count as number) || 0
+						// 按命中次数排序
+						const hitA = (a.hit as number) || 0
+						const hitB = (b.hit as number) || 0
 						return hitB - hitA // 降序
 					case 'weight':
 						// 按权重排序
 						const weightA = a.weight || 0
 						const weightB = b.weight || 0
 						return weightB - weightA // 降序
+					case 'score':
+						// 按评分排序
+						const scoreA = a.score || 0
+						const scoreB = b.score || 0
+						return scoreB - scoreA // 降序
 					case 'votes_good':
 						// 按好评数排序
-						const voteGoodA = (a.metadata?.vote_good as number) || 0
-						const voteGoodB = (b.metadata?.vote_good as number) || 0
+						const voteGoodA = a.positive || 0
+						const voteGoodB = b.positive || 0
 						return voteGoodB - voteGoodA // 降序
 					case 'votes_bad':
 						// 按差评数排序
-						const voteBadA = (a.metadata?.vote_bad as number) || 0
-						const voteBadB = (b.metadata?.vote_bad as number) || 0
+						const voteBadA = a.negative || 0
+						const voteBadB = b.negative || 0
 						return voteBadB - voteBadA // 降序
 					case 'structure':
 						// 按文档结构排序：先按 depth (1, 2, 3...)，再按 index (0, 1, 2...)
@@ -506,9 +491,7 @@ const Segments: React.FC<SegmentsProps> = ({
 					<div className={styles.metaInfo}>
 						<span className={styles.metaItem}>
 							{is_cn ? '权重' : 'Weight'}{' '}
-							<span className={styles.metaNumber}>
-								{segment.weight?.toFixed(1) || '0.0'}
-							</span>
+							<span className={styles.metaNumber}>{(segment.weight || 0).toFixed(2)}</span>
 						</span>
 						<span className={styles.metaItem}>
 							{is_cn ? '评分' : 'Score'}{' '}
@@ -518,7 +501,7 @@ const Segments: React.FC<SegmentsProps> = ({
 						</span>
 						<span className={styles.metaItem}>
 							{is_cn ? '命中' : 'Hits'}{' '}
-							<span className={styles.metaNumber}>{segment.metadata?.hit_count || 0}</span>
+							<span className={styles.metaNumber}>{segment.hit || 0}</span>
 						</span>
 					</div>
 				</div>
@@ -552,26 +535,14 @@ const Segments: React.FC<SegmentsProps> = ({
 					</div>
 
 					<div className={styles.voteActions}>
-						<button
-							className={styles.voteButton}
-							onClick={(e) => {
-								e.stopPropagation()
-								handleVote(segment.id, 'good')
-							}}
-						>
+						<div className={styles.voteDisplay}>
 							<Icon name='material-thumb_up' size={14} />
-							<span>{segment.metadata?.vote_good || 0}</span>
-						</button>
-						<button
-							className={styles.voteButton}
-							onClick={(e) => {
-								e.stopPropagation()
-								handleVote(segment.id, 'bad')
-							}}
-						>
+							<span>{segment.positive || 0}</span>
+						</div>
+						<div className={styles.voteDisplay}>
 							<Icon name='material-thumb_down' size={14} />
-							<span>{segment.metadata?.vote_bad || 0}</span>
-						</button>
+							<span>{segment.negative || 0}</span>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -721,11 +692,14 @@ const Segments: React.FC<SegmentsProps> = ({
 							<Select.Option value='weight'>
 								{is_cn ? '最高权重' : 'Highest Weight'}
 							</Select.Option>
+							<Select.Option value='score'>
+								{is_cn ? '最高评分' : 'Highest Score'}
+							</Select.Option>
 							<Select.Option value='votes_good'>
-								{is_cn ? '好评优先' : 'Good Votes First'}
+								{is_cn ? '有用优先' : 'Useful First'}
 							</Select.Option>
 							<Select.Option value='votes_bad'>
-								{is_cn ? '差评优先' : 'Bad Votes First'}
+								{is_cn ? '没用优先' : 'Useless First'}
 							</Select.Option>
 						</Select>
 						<Button
@@ -769,9 +743,10 @@ const Segments: React.FC<SegmentsProps> = ({
 			<SegmentDetail
 				visible={detailVisible}
 				onClose={handleCloseDetail}
-				segmentData={selectedSegment}
+				segmentId={selectedSegmentId}
 				collectionInfo={collectionInfo}
 				docID={docid}
+				onDataUpdated={() => loadSegments(true)} // 数据更新后刷新列表
 			/>
 		</div>
 	)

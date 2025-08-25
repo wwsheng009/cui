@@ -271,17 +271,24 @@ export type GetDocumentResponse = Document
 
 // Segment data structure (matches backend GraphRag Segment type)
 export interface Segment {
+	collection_id: string
+	document_id: string
 	id: string
 	text: string
-	metadata?: Record<string, any>
-	score?: number
-	weight?: number
-	vote?: number
-	created_at?: string
-	updated_at?: string
-	// Graph-related fields
-	nodes?: any[]
-	relationships?: any[]
+	nodes: any[] // GraphNode array
+	relationships: any[] // GraphRelationship array
+	parents: string[]
+	children: string[]
+	metadata: Record<string, any>
+	created_at: string
+	updated_at: string
+	version: number
+	weight: number
+	score: number
+	score_dimensions?: Record<string, number>
+	positive: number // Positive vote count
+	negative: number // Negative vote count
+	hit: number // Hit count for the segment
 }
 
 // List segments request parameters
@@ -331,22 +338,43 @@ export interface ScrollSegmentsResponse {
 
 // ===== Segment Operations Types =====
 
+// Get segment response
+export interface GetSegmentResponse {
+	segment: Segment
+	doc_id: string
+	segment_id: string
+}
+
+// SegmentTree represents a hierarchical tree structure of segment parents
+export interface SegmentTree {
+	segment: Segment
+	parent?: SegmentTree
+	depth: number
+}
+
+// Get segment parents request
+export interface GetSegmentParentsRequest {
+	include_metadata?: boolean // Whether to include segment metadata (default: true)
+}
+
+// Get segment parents response
+export interface GetSegmentParentsResponse {
+	tree: SegmentTree
+	doc_id: string
+	segment_id: string
+}
+
 // Segment text structure for adding/updating segments
 export interface SegmentText {
 	id?: string
 	text: string
 }
 
-// Segment vote structure
-export interface SegmentVote {
-	id: string
-	vote?: number
-}
-
 // Segment score structure
 export interface SegmentScore {
 	id: string
 	score?: number
+	dimensions?: Record<string, number>
 }
 
 // Segment weight structure
@@ -415,4 +443,177 @@ export interface UpdateWeightResponse {
 	message: string
 	segments: SegmentWeight[]
 	updated_count: number
+}
+
+// Update weights request (batch)
+export interface UpdateWeightsRequest {
+	weights: SegmentWeight[]
+}
+
+// Update weights response (batch)
+export interface UpdateWeightsResponse {
+	message: string
+	doc_id: string
+	weights: SegmentWeight[]
+	updated_count: number
+}
+
+// Update scores request (batch)
+export interface UpdateScoresRequest {
+	scores: SegmentScore[]
+}
+
+// Update scores response (batch)
+export interface UpdateScoresResponse {
+	message: string
+	doc_id: string
+	scores: SegmentScore[]
+	updated_count: number
+}
+
+// ===== Vote Management Types =====
+
+// Vote type enum
+export type VoteType = 'positive' | 'negative'
+
+// Segment reaction structure
+export interface SegmentReaction {
+	source?: string // Source of the reaction, e.g. "chat", "api", "bot", etc.
+	scenario?: string // Scenario of the reaction, e.g. "question", "search", "response", etc.
+	query?: string // Query of the reaction, e.g. "What is the capital of France?", etc.
+	candidate?: string // Candidate of the reaction, e.g. "Paris", etc.
+	context?: Record<string, any> // Context of the reaction
+}
+
+// Segment vote structure
+export interface SegmentVote {
+	id: string // Segment ID
+	vote_id?: string // Unique vote ID
+	vote: VoteType // Vote type
+	hit_id?: string // Optional: Hit ID to associate the vote with a specific hit
+	source?: string
+	scenario?: string
+	query?: string
+	candidate?: string
+	context?: Record<string, any>
+}
+
+// Segment hit structure
+export interface SegmentHit {
+	id: string // Segment ID
+	hit_id?: string // Unique hit ID
+	source?: string
+	scenario?: string
+	query?: string
+	candidate?: string
+	context?: Record<string, any>
+}
+
+// Vote removal structure
+export interface VoteRemoval {
+	segment_id: string
+	vote_id: string
+}
+
+// Hit removal structure
+export interface HitRemoval {
+	segment_id: string
+	hit_id: string
+}
+
+// Vote scroll result
+export interface VoteScrollResult {
+	votes: SegmentVote[]
+	next_cursor?: string
+	has_more: boolean
+	total?: number
+}
+
+// Hit scroll result
+export interface HitScrollResult {
+	hits: SegmentHit[] | null
+	next_cursor?: string
+	has_more: boolean
+	total?: number
+}
+
+// Scroll votes request
+export interface ScrollVotesRequest {
+	limit?: number
+	scroll_id?: string
+	vote_type?: VoteType
+	source?: string
+	scenario?: string
+}
+
+// Scroll hits request
+export interface ScrollHitsRequest {
+	limit?: number
+	scroll_id?: string
+	source?: string
+	scenario?: string
+}
+
+// Add votes request
+export interface AddVotesRequest {
+	segments: SegmentVote[]
+	default_reaction?: SegmentReaction
+}
+
+// Add votes response
+export interface AddVotesResponse {
+	message: string
+	doc_id: string
+	segment_id: string
+	votes: SegmentVote[]
+	updated_count: number
+}
+
+// Add hits request
+export interface AddHitsRequest {
+	segments: SegmentHit[]
+	default_reaction?: SegmentReaction
+}
+
+// Add hits response
+export interface AddHitsResponse {
+	message: string
+	doc_id: string
+	segment_id: string
+	hits: SegmentHit[]
+	updated_count: number
+}
+
+// Remove votes response
+export interface RemoveVotesResponse {
+	message: string
+	doc_id: string
+	segment_id: string
+	vote_ids: string[]
+	removed_count: number
+}
+
+// Remove hits response
+export interface RemoveHitsResponse {
+	message: string
+	doc_id: string
+	segment_id: string
+	hit_ids: string[]
+	removed_count: number
+}
+
+// Get vote response
+export interface GetVoteResponse {
+	vote: SegmentVote
+	doc_id: string
+	segment_id: string
+	vote_id: string
+}
+
+// Get hit response
+export interface GetHitResponse {
+	hit: SegmentHit
+	doc_id: string
+	segment_id: string
+	hit_id: string
 }
