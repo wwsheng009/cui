@@ -44,6 +44,101 @@ export interface Collection {
 	config?: CollectionConfig
 }
 
+// Database Collection structure (flat structure from database)
+export interface DatabaseCollection {
+	id: number // Auto-increment primary key
+	collection_id: string // Unique string identifier
+	name: string
+	description?: string
+	status: string
+	system: boolean
+	readonly: boolean
+	sort: number
+	cover?: string
+	document_count: number
+	embedding_provider_id?: string
+	embedding_option_id?: string
+	embedding_properties?: any
+	locale?: string
+	distance?: string // Vector distance calculation method
+	index_type?: string // Vector index algorithm type
+	m?: number // HNSW M parameter
+	ef_construction?: number
+	ef_search?: number
+	num_lists?: number
+	num_probes?: number
+	created_at: string
+	updated_at: string
+	// Permission fields
+	__yao_created_by?: string
+	__yao_updated_by?: string
+	__yao_team_id?: string
+	__yao_tenant_id?: string
+	__yao_public_read?: boolean
+	__yao_public_write?: boolean
+	__yao_inherit_from?: string
+}
+
+// Database Document structure (flat structure from database)
+export interface DatabaseDocument {
+	id: number // Auto-increment primary key
+	document_id: string // Unique string identifier
+	collection_id: string // Reference to collection
+	name: string
+	description?: string
+	status: string
+	type: string // file, text, url
+	size: number
+	segment_count: number
+	job_id?: string
+	uploader_id?: string
+	tags?: any
+	locale?: string
+	system: boolean
+	readonly: boolean
+	sort: number
+	cover?: string
+	// File-specific fields
+	file_id?: string
+	file_name?: string
+	file_path?: string
+	file_mime_type?: string
+	// URL-specific fields
+	url?: string
+	url_title?: string
+	// Text content
+	text_content?: string
+	// Provider configurations
+	converter_provider_id?: string
+	converter_option_id?: string
+	converter_properties?: any
+	fetcher_provider_id?: string
+	fetcher_option_id?: string
+	fetcher_properties?: any
+	chunking_provider_id?: string
+	chunking_option_id?: string
+	chunking_properties?: any
+	embedding_provider_id?: string
+	embedding_option_id?: string
+	embedding_properties?: any
+	extraction_provider_id?: string
+	extraction_option_id?: string
+	extraction_properties?: any
+	// Timestamps
+	processed_at?: string
+	error_message?: string
+	created_at: string
+	updated_at: string
+	// Permission fields
+	__yao_created_by?: string
+	__yao_updated_by?: string
+	__yao_team_id?: string
+	__yao_tenant_id?: string
+	__yao_public_read?: boolean
+	__yao_public_write?: boolean
+	__yao_inherit_from?: string
+}
+
 // API request types
 export interface CreateCollectionRequest {
 	id: string
@@ -53,6 +148,25 @@ export interface CreateCollectionRequest {
 
 export interface GetCollectionsRequest {
 	filter?: Record<string, string>
+}
+
+export interface ListCollectionsRequest {
+	page?: number
+	pagesize?: number
+	select?: string
+	keywords?: string
+	status?: string
+	system?: boolean
+	embedding_provider_id?: string
+	sort?: string
+}
+
+export interface ListCollectionsResponse {
+	data: DatabaseCollection[]
+	page: number
+	pagesize: number
+	total: number
+	pagecnt: number
 }
 
 export interface UpdateCollectionMetadataRequest {
@@ -266,6 +380,14 @@ export interface GetDocumentRequest {
 
 // Get document response (single document)
 export type GetDocumentResponse = Document
+
+// Remove documents response
+export interface RemoveDocsResponse {
+	message: string
+	deleted_count: number
+	requested_count: number
+	db_deleted_count: number
+}
 
 // ===== Segment Management Types =====
 
@@ -616,4 +738,65 @@ export interface GetHitResponse {
 	doc_id: string
 	segment_id: string
 	hit_id: string
+}
+
+// ===== Segment Graph Management Types =====
+
+// Graph node structure (entity)
+export interface GraphNode {
+	id: string
+	labels: string[]
+	properties?: Record<string, any>
+}
+
+// Graph relationship structure
+export interface GraphRelationship {
+	id: string
+	type: string
+	start_node: string
+	end_node: string
+	properties?: Record<string, any>
+}
+
+// Segment graph response (GET /documents/:docID/segments/:segmentID/graph)
+export interface SegmentGraphResponse {
+	doc_id: string
+	segment_id: string
+	entities?: GraphNode[]
+	entities_count?: number
+	relationships?: GraphRelationship[]
+	relationships_count?: number
+}
+
+// Segment entities response (GET /documents/:docID/segments/:segmentID/entities)
+export interface SegmentEntitiesResponse {
+	doc_id: string
+	segment_id: string
+	entities: GraphNode[]
+	entities_count: number
+}
+
+// Segment relationships response (GET /documents/:docID/segments/:segmentID/relationships)
+export interface SegmentRelationshipsResponse {
+	doc_id: string
+	segment_id: string
+	relationships: GraphRelationship[]
+	relationships_count: number
+}
+
+// Extract segment graph request (POST /documents/:docID/segments/:segmentID/extract)
+export interface ExtractSegmentGraphRequest {
+	// Extraction options can be added here as needed
+	// For now, keeping it simple with optional properties
+	[key: string]: any
+}
+
+// Extract segment graph response (POST /documents/:docID/segments/:segmentID/extract)
+export interface ExtractSegmentGraphResponse {
+	message: string
+	doc_id: string
+	segment_id: string
+	entities_count: number
+	relationships_count: number
+	extraction_model?: string
 }

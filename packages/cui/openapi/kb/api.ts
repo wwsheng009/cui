@@ -7,6 +7,8 @@ import {
 	RemoveCollectionResponse,
 	CollectionExistsResponse,
 	GetCollectionsRequest,
+	ListCollectionsRequest,
+	ListCollectionsResponse,
 	UpdateCollectionMetadataRequest,
 	UpdateCollectionMetadataResponse,
 	Provider,
@@ -21,6 +23,7 @@ import {
 	ListDocumentsResponse,
 	GetDocumentRequest,
 	GetDocumentResponse,
+	RemoveDocsResponse,
 	Segment,
 	GetSegmentResponse,
 	GetSegmentParentsRequest,
@@ -33,6 +36,11 @@ import {
 	UpdateSegmentsResponse,
 	RemoveSegmentsResponse,
 	RemoveSegmentsByDocIDResponse,
+	SegmentGraphResponse,
+	SegmentEntitiesResponse,
+	SegmentRelationshipsResponse,
+	ExtractSegmentGraphRequest,
+	ExtractSegmentGraphResponse,
 	UpdateWeightRequest,
 	UpdateWeightResponse,
 	UpdateWeightsRequest,
@@ -94,7 +102,44 @@ export class KB {
 	}
 
 	/**
-	 * Get collections list
+	 * List collections with pagination
+	 */
+	async ListCollections(request?: ListCollectionsRequest): Promise<ApiResponse<ListCollectionsResponse>> {
+		const params: Record<string, string> = {}
+
+		if (request) {
+			if (request.page !== undefined) {
+				params.page = request.page.toString()
+			}
+			if (request.pagesize !== undefined) {
+				params.pagesize = request.pagesize.toString()
+			}
+			if (request.select) {
+				params.select = request.select
+			}
+			if (request.keywords) {
+				params.keywords = request.keywords
+			}
+			if (request.status) {
+				params.status = request.status
+			}
+			if (request.system !== undefined) {
+				params.system = request.system.toString()
+			}
+			if (request.embedding_provider_id) {
+				params.embedding_provider_id = request.embedding_provider_id
+			}
+			if (request.sort) {
+				params.sort = request.sort
+			}
+		}
+
+		return this.api.Get<ListCollectionsResponse>('/kb/collections', params)
+	}
+
+	/**
+	 * Get collections list (deprecated - use ListCollections instead)
+	 * @deprecated Use ListCollections for better pagination support
 	 */
 	async GetCollections(request?: GetCollectionsRequest): Promise<ApiResponse<Collection[]>> {
 		const params = request?.filter || {}
@@ -190,6 +235,16 @@ export class KB {
 		}
 
 		return this.api.Get<GetDocumentResponse>(`/kb/documents/${docID}`, params)
+	}
+
+	/**
+	 * Remove documents by IDs
+	 */
+	async RemoveDocs(documentIDs: string[]): Promise<ApiResponse<RemoveDocsResponse>> {
+		const queryParams = new URLSearchParams({
+			document_ids: documentIDs.join(',')
+		})
+		return this.api.Delete<RemoveDocsResponse>(`/kb/documents?${queryParams.toString()}`)
 	}
 
 	// ===== Segment Management =====
@@ -294,6 +349,78 @@ export class KB {
 	 */
 	async RemoveSegmentsByDocID(docID: string): Promise<ApiResponse<RemoveSegmentsByDocIDResponse>> {
 		return this.api.Delete<RemoveSegmentsByDocIDResponse>(`/kb/documents/${docID}/segments`)
+	}
+
+	// ===== Segment Graph Management =====
+
+	/**
+	 * Get segment graph information (entities and relationships)
+	 */
+	async GetSegmentGraph(
+		docID: string,
+		segmentID: string,
+		options?: {
+			include_entities?: boolean
+			include_relationships?: boolean
+		}
+	): Promise<ApiResponse<SegmentGraphResponse>> {
+		const params: Record<string, string> = {}
+
+		if (options?.include_entities !== undefined) {
+			params.include_entities = options.include_entities.toString()
+		}
+		if (options?.include_relationships !== undefined) {
+			params.include_relationships = options.include_relationships.toString()
+		}
+
+		return this.api.Get<SegmentGraphResponse>(`/kb/documents/${docID}/segments/${segmentID}/graph`, params)
+	}
+
+	/**
+	 * Get segment entities
+	 */
+	async GetSegmentEntities(docID: string, segmentID: string): Promise<ApiResponse<SegmentEntitiesResponse>> {
+		return this.api.Get<SegmentEntitiesResponse>(`/kb/documents/${docID}/segments/${segmentID}/entities`)
+	}
+
+	/**
+	 * Get segment relationships
+	 */
+	async GetSegmentRelationships(
+		docID: string,
+		segmentID: string
+	): Promise<ApiResponse<SegmentRelationshipsResponse>> {
+		return this.api.Get<SegmentRelationshipsResponse>(
+			`/kb/documents/${docID}/segments/${segmentID}/relationships`
+		)
+	}
+
+	/**
+	 * Extract segment graph (synchronous) - re-extract entities and relationships
+	 */
+	async ExtractSegmentGraph(
+		docID: string,
+		segmentID: string,
+		options?: ExtractSegmentGraphRequest
+	): Promise<ApiResponse<ExtractSegmentGraphResponse>> {
+		return this.api.Post<ExtractSegmentGraphResponse>(
+			`/kb/documents/${docID}/segments/${segmentID}/extract`,
+			options || {}
+		)
+	}
+
+	/**
+	 * Extract segment graph (asynchronous) - re-extract entities and relationships
+	 */
+	async ExtractSegmentGraphAsync(
+		docID: string,
+		segmentID: string,
+		options?: ExtractSegmentGraphRequest
+	): Promise<ApiResponse<AsyncOperationResponse>> {
+		return this.api.Post<AsyncOperationResponse>(
+			`/kb/documents/${docID}/segments/${segmentID}/extract/async`,
+			options || {}
+		)
 	}
 
 	/**
