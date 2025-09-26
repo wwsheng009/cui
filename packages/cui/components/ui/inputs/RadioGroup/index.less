@@ -1,0 +1,88 @@
+.radioGroup {
+	display: flex !important;
+	gap: 16px !important;
+	flex-wrap: wrap !important;
+	background: transparent !important;
+	border: none !important;
+	padding: 0 !important;
+	margin: 0 !important;
+}
+
+.radioOption {
+	display: flex !important;
+	align-items: center !important;
+	gap: 8px !important;
+	cursor: pointer !important;
+	user-select: none !important;
+	padding: 8px 12px !important;
+	border: 1px solid var(--color_border) !important;
+	border-radius: 6px !important;
+	transition: border-color 0.2s ease !important;
+	background: transparent !important;
+	min-width: 80px !important;
+	justify-content: center !important;
+	box-sizing: border-box !important;
+
+	&:hover:not(.disabled) {
+		border-color: var(--color_main) !important;
+		background: transparent !important;
+	}
+
+	&.selected {
+		border-color: var(--color_main) !important;
+		background: transparent !important;
+	}
+
+	&.disabled {
+		cursor: not-allowed !important;
+		opacity: 0.6 !important;
+		border-color: var(--color_border_light) !important;
+		background: transparent !important;
+	}
+}
+
+.radioCircle {
+	width: 16px !important;
+	height: 16px !important;
+	border: 1px solid var(--color_border) !important;
+	border-radius: 50% !important;
+	display: flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	flex-shrink: 0 !important;
+	background: transparent !important;
+	transition: border-color 0.2s ease !important;
+	box-sizing: border-box !important;
+
+	.radioOption.selected & {
+		border-color: var(--color_main) !important;
+		background: transparent !important;
+	}
+
+	.radioOption:hover:not(.disabled) & {
+		border-color: var(--color_main) !important;
+		background: transparent !important;
+	}
+
+	.radioOption.disabled & {
+		border-color: var(--color_border_light) !important;
+		background: transparent !important;
+	}
+}
+
+.radioDot {
+	width: 8px !important;
+	height: 8px !important;
+	border-radius: 50% !important;
+	background: var(--color_main) !important;
+}
+
+.radioLabel {
+	font-size: 13px !important;
+	color: var(--color_text) !important;
+	line-height: 1 !important;
+
+	.radioOption.disabled & {
+		color: var(--color_text_light) !important;
+	}
+}
