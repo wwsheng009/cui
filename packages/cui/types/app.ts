@@ -429,12 +429,29 @@ export declare namespace App {
 	}
 
 	interface User {
-		email: string
 		id: number | string
 		avatar?: string
 		mobile?: any
 		name: string
 		type: string
+		// Team information (if user selected a team)
+		tenant_id?: string
+		team_id?: string
+		team?: {
+			team_id?: string
+			logo?: string
+			name?: string
+			owner_id?: string
+			description?: string
+		}
+		is_owner?: boolean
+		// User type information
+		type_id?: string
+		user_type?: {
+			type_id?: string
+			name?: string
+			locale?: string
+		}
 	}
 
 	interface Menu {

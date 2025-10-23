@@ -18,6 +18,33 @@ import ChatWrapper from './wrappers/Chat'
 
 import type { IPropsHelmet, IPropsLoginWrapper } from './types'
 
+// Standalone pages that render without wrappers (OAuth, invitations, etc.)
+const STANDALONE_PAGES = new Map([
+	// OAuth authentication pages
+	['auth_entry', '/auth/entry'], // Unified login/register entry point
+	['auth_entry_mfa', '/auth/entry/mfa'], // MFA verification
+	['auth_entry_invite', '/auth/entry/invite'], // Invitation code verification
+	['auth_logout', '/auth/logout'],
+	['auth_back', '/auth/back/'],
+	['auth_consent', '/auth/consent'],
+	['auth_helloworld', '/auth/helloworld'],
+	// Team pages
+	['team_select', '/team/select'],
+	['team_invite', '/team/invite/']
+])
+
+// Check if current path matches any standalone page
+const isStandalonePage = (pathname: string): boolean => {
+	return Array.from(STANDALONE_PAGES.values()).some((route) => {
+		// For routes ending with '/', use startsWith (e.g., /auth/back/, /team/invite/)
+		if (route.endsWith('/')) {
+			return pathname.startsWith(route)
+		}
+		// For exact routes, use strict equality
+		return pathname === route
+	})
+}
+
 const Index = () => {
 	const messages = useIntl()
 	const [global] = useState(() => container.resolve(GlobalModel))
@@ -25,15 +52,7 @@ const Index = () => {
 	const { pathname, search } = useLocation()
 	const is_login = pathname.indexOf('/login/') !== -1 || pathname === '/'
 	const is_auth = pathname === '/auth'
-
-	// For OAuth login
-	const is_auth_signin = pathname === '/auth/signin'
-	const is_auth_signin_totp = pathname === '/auth/signin/totp'
-	const is_auth_signin_sms = pathname === '/auth/signin/sms'
-	const is_auth_logout = pathname === '/auth/logout'
-	const is_auth_back = pathname.startsWith('/auth/back/')
-	const is_auth_consent = pathname === '/auth/consent'
-	const is_auth_helloworld = pathname === '/auth/helloworld'
+	const is_standalone = isStandalonePage(pathname)
 
 	useLayoutEffect(() => {
 		window.$global = global
@@ -89,16 +108,8 @@ const Index = () => {
 	}
 
 	const renderMainContent = () => {
-		// OAuth login
-		if (
-			is_auth_signin ||
-			is_auth_consent ||
-			is_auth_signin_totp ||
-			is_auth_signin_sms ||
-			is_auth_back ||
-			is_auth_logout ||
-			is_auth_helloworld
-		) {
+		// Standalone pages (OAuth, invitations, etc.) - render without wrappers
+		if (is_standalone) {
 			return <Outlet />
 		}
 

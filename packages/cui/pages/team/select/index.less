@@ -1,0 +1,208 @@
+@import '@/styles/preset/vars.less';
+
+.teamSelectContainer {
+	width: 100%;
+	max-width: 540px;
+	padding: 20px;
+
+	.teamSelectCard {
+		background: var(--color_bg_menu);
+		border-radius: calc(var(--radius) * 3);
+		padding: 40px;
+		box-shadow: var(--shadow);
+		border: 1px solid var(--color_border);
+
+		.titleSection {
+			text-align: center;
+			margin-bottom: 32px;
+
+			.appTitle {
+				font-size: 24px;
+				font-weight: 600;
+				color: var(--color_text);
+				margin: 0 0 8px 0;
+				letter-spacing: -0.01em;
+			}
+
+			.appSubtitle {
+				font-size: 15px;
+				color: var(--color_text_light);
+				margin: 0;
+				line-height: 1.5;
+			}
+		}
+
+		.loadingContainer {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			padding: 60px 20px;
+
+			.loadingText {
+				margin-top: 16px;
+				font-size: 14px;
+				color: var(--color_text_light);
+			}
+		}
+
+		.errorContainer {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			padding: 60px 20px;
+			text-align: center;
+
+			.errorIcon {
+				font-size: 48px;
+				margin-bottom: 16px;
+			}
+
+			.errorMessage {
+				font-size: 14px;
+				color: var(--color_text);
+				margin: 0 0 24px 0;
+				max-width: 400px;
+			}
+
+			.errorActions {
+				display: flex;
+				gap: 12px;
+
+				button {
+					min-width: 120px;
+				}
+			}
+		}
+
+		.teamsGrid {
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+			margin-bottom: 32px;
+		}
+
+		.divider {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			margin: 24px 0;
+
+			.dividerLine {
+				flex: 1;
+				height: 1px;
+				background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.06), transparent);
+
+				&:first-child {
+					background: linear-gradient(to right, transparent, rgba(0, 0, 0, 0.06));
+				}
+
+				&:last-child {
+					background: linear-gradient(to left, transparent, rgba(0, 0, 0, 0.06));
+				}
+			}
+
+			.dividerText {
+				padding: 0 16px;
+				font-size: 13px;
+				color: rgba(0, 0, 0, 0.45);
+				white-space: nowrap;
+			}
+		}
+
+		.teamSelectActions {
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+			margin-top: 24px;
+
+			.continueButton,
+			.backButton {
+				width: 100%;
+			}
+
+			.continueButton {
+				height: 44px;
+			}
+
+			.backButton {
+				height: 40px;
+			}
+		}
+	}
+}
+
+/* Single column on smaller screens */
+@media (max-width: 768px) {
+	.teamSelectContainer {
+		max-width: 100%;
+		padding: 16px;
+
+		.teamSelectCard {
+			padding: 24px;
+
+			.titleSection {
+				margin-bottom: 24px;
+
+				.appTitle {
+					font-size: 20px;
+				}
+
+				.appSubtitle {
+					font-size: 14px;
+				}
+			}
+
+			.teamsGrid {
+				gap: 10px;
+			}
+		}
+	}
+}
+
+/* Dark theme support */
+[data-theme='dark'] {
+	.teamSelectContainer .teamSelectCard {
+		background: rgba(26, 29, 41, 0.85);
+		backdrop-filter: blur(20px);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3),
+			inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+		.titleSection {
+			.appTitle {
+				color: rgba(255, 255, 255, 0.95);
+				text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+			}
+
+			.appSubtitle {
+				color: rgba(255, 255, 255, 0.65);
+			}
+		}
+
+		.errorContainer {
+			.errorMessage {
+				color: rgba(255, 255, 255, 0.85);
+			}
+		}
+
+		.divider {
+			.dividerLine {
+				background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.15), transparent);
+
+				&:first-child {
+					background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.15));
+				}
+
+				&:last-child {
+					background: linear-gradient(to left, transparent, rgba(255, 255, 255, 0.15));
+				}
+			}
+
+			.dividerText {
+				color: rgba(255, 255, 255, 0.65);
+			}
+		}
+	}
+}

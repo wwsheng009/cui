@@ -28,7 +28,7 @@ export class User {
 		this.account = new UserAccountAPI(api)
 		this.mfa = new UserMFA(api)
 		this.preferences = new UserPreferencesAPI(api)
-		this.teams = new UserTeams(api)
+		this.teams = new UserTeams(api, this.auth)
 		this.subscription = new UserSubscriptionAPI(api)
 		this.credits = new UserCreditsAPI(api)
 	}
@@ -36,19 +36,11 @@ export class User {
 	// ===== Convenience Methods (Backward Compatibility) =====
 
 	/**
-	 * Get login configuration
-	 * @deprecated Use auth.GetLoginConfig() instead
+	 * Get entry configuration (unified login + register)
+	 * @deprecated Use auth.GetEntryConfig() instead
 	 */
 	async GetConfig(locale?: string) {
-		return this.auth.GetLoginConfig(locale)
-	}
-
-	/**
-	 * Login with username and password
-	 * @deprecated Use auth.Login() instead
-	 */
-	async SigninWithPassword(credentials: any) {
-		return this.auth.Login(credentials)
+		return this.auth.GetEntryConfig(locale)
 	}
 
 	/**

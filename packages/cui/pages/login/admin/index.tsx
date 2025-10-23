@@ -14,11 +14,11 @@ const Index = () => {
 		await window.$app.Event.emit('app/getAppInfo')
 
 		// Redirect to the openapi auth page
-		if (x.global.app_info.openapi?.baseURL && x.global.app_info.openapi?.baseURL != '') {
-			return history.push('/auth/signin')
+		if (x.global.app_info.openapi?.baseURL != '') {
+			return history.push('/auth/entry')
 		}
 
-		if (!x.global.app_info.login?.admin) return history.push('/auth/signin')
+		x.global.app_info.openapi?.baseURL != '' && history.push('/auth/entry')
 
 		x.user_type = 'admin'
 		x.getCaptcha()

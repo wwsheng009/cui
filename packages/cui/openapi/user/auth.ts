@@ -2,15 +2,20 @@ import { OpenAPI } from '../openapi'
 import { ApiResponse, ErrorResponse, JWK } from '../types'
 import * as jose from 'jose'
 import {
-	SigninConfig,
-	SigninRequest,
-	SigninResponse,
+	EntryConfig,
+	EntryVerifyRequest,
+	EntryVerifyResponse,
+	EntryRegisterRequest,
+	EntryLoginRequest,
+	EntryAuthResponse,
+	EntrySendOTPResponse,
 	OAuthAuthorizationURLResponse,
 	OAuthAuthbackParams,
 	OAuthAuthbackResponse,
 	OAuthAuthResult,
 	UserInfo,
-	CaptchaResponse
+	CaptchaResponse,
+	LoginStatus
 } from './types'
 
 /**
@@ -21,24 +26,71 @@ export class UserAuth {
 	constructor(private api: OpenAPI) {}
 
 	/**
-	 * Get login configuration
+	 * Get unified auth entry configuration
 	 */
-	async GetLoginConfig(locale?: string): Promise<ApiResponse<SigninConfig>> {
-		return this.api.Get<SigninConfig>(`/user/login`, { locale: locale || '' })
+	async GetEntryConfig(locale?: string): Promise<ApiResponse<EntryConfig>> {
+		return this.api.Get<EntryConfig>(`/user/entry`, { locale: locale || '' })
+	}
+
+	/**
+	 * Verify entry (login/register)
+	 * Checks if username exists and determines whether this is login or registration
+	 * For registration: sends verification code automatically
+	 */
+	async EntryVerify(data: EntryVerifyRequest): Promise<ApiResponse<EntryVerifyResponse>> {
+		return this.api.Post<EntryVerifyResponse>('/user/entry/verify', data)
+	}
+
+	/**
+	 * Register a new user
+	 * Requires temporary access token from EntryVerify
+	 */
+	async EntryRegister(data: EntryRegisterRequest, accessToken: string): Promise<ApiResponse<EntryAuthResponse>> {
+		return this.api.Post<EntryAuthResponse>('/user/entry/register', data, {
+			Authorization: `Bearer ${accessToken}`
+		})
 	}
 
 	/**
 	 * Login with username and password
+	 * Requires temporary access token from EntryVerify
 	 */
-	async Login(credentials: SigninRequest): Promise<ApiResponse<SigninResponse>> {
-		const response = await this.api.Post<SigninResponse>('/user/login', credentials)
+	async EntryLogin(data: EntryLoginRequest, accessToken: string): Promise<ApiResponse<EntryAuthResponse>> {
+		return this.api.Post<EntryAuthResponse>('/user/entry/login', data, {
+			Authorization: `Bearer ${accessToken}`
+		})
+	}
 
-		// Auto-handle CSRF token for cross-origin scenarios
-		if (!this.IsError(response) && response.data?.csrf_token) {
-			this.api.SetCSRFToken(response.data.csrf_token)
-		}
+	/**
+	 * Resend OTP verification code
+	 * Requires temporary access token from EntryVerify
+	 */
+	async SendOTP(accessToken: string, locale?: string): Promise<ApiResponse<EntrySendOTPResponse>> {
+		const url = locale ? `/user/entry/otp?locale=${encodeURIComponent(locale)}` : '/user/entry/otp'
+		return this.api.Post<EntrySendOTPResponse>(
+			url,
+			{},
+			{
+				Authorization: `Bearer ${accessToken}`
+			}
+		)
+	}
 
-		return response
+	/**
+	 * Verify and redeem invitation code
+	 * Requires temporary access token with invite_verification scope
+	 * After successful verification, returns full login tokens
+	 */
+	async VerifyInvite(invitationCode: string, accessToken: string): Promise<ApiResponse<EntryAuthResponse>> {
+		return this.api.Post<EntryAuthResponse>(
+			'/user/entry/invite/verify',
+			{
+				invitation_code: invitationCode
+			},
+			{
+				Authorization: `Bearer ${accessToken}`
+			}
+		)
 	}
 
 	/**
@@ -74,16 +126,52 @@ export class UserAuth {
 			)
 		}
 
-		// Validate the ID Token and extract user information
-		const userInfo = await this.ValidateIDToken(response.data?.id_token || '')
+		// Check login status
+		const status = response.data?.status || LoginStatus.Success
 
-		// Construct complete authentication result
+		// Base authentication result
 		const authResult: OAuthAuthResult = {
-			user: userInfo,
+			status,
 			provider: id,
 			authenticated_at: Math.floor(Date.now() / 1000),
-			expires_at: userInfo.exp
+			session_id: response.data?.session_id,
+			access_token: response.data?.access_token,
+			expires_in: response.data?.expires_in,
+			refresh_token: response.data?.refresh_token,
+			refresh_token_expires_in: response.data?.refresh_token_expires_in
 		}
+
+		// Handle MFA required
+		if (status === LoginStatus.MFARequired) {
+			return {
+				status: response.status,
+				headers: response.headers,
+				data: authResult
+			}
+		}
+
+		// Handle team selection required
+		if (status === LoginStatus.TeamSelectionRequired) {
+			return {
+				status: response.status,
+				headers: response.headers,
+				data: authResult
+			}
+		}
+
+		// Handle invite verification required
+		if (status === LoginStatus.InviteVerification) {
+			return {
+				status: response.status,
+				headers: response.headers,
+				data: authResult
+			}
+		}
+
+		// Normal login success - validate the ID Token
+		const userInfo = await this.ValidateIDToken(response.data?.id_token || '')
+		authResult.user = userInfo
+		authResult.expires_at = userInfo.exp
 
 		return {
 			status: response.status,
@@ -252,10 +340,10 @@ export class UserAuth {
 	}
 
 	/**
-	 * Get captcha image for login
+	 * Get captcha image for entry (login/register)
 	 */
 	async GetCaptcha(): Promise<ApiResponse<CaptchaResponse>> {
-		return this.api.Get<CaptchaResponse>('/user/login/captcha')
+		return this.api.Get<CaptchaResponse>('/user/entry/captcha')
 	}
 
 	/**
@@ -263,7 +351,7 @@ export class UserAuth {
 	 */
 	async RefreshCaptcha(captchaId?: string): Promise<ApiResponse<CaptchaResponse>> {
 		const query = captchaId ? `?refresh=${encodeURIComponent(captchaId)}` : ''
-		return this.api.Get<CaptchaResponse>(`/user/login/captcha${query}`)
+		return this.api.Get<CaptchaResponse>(`/user/entry/captcha${query}`)
 	}
 
 	/**

@@ -1,4 +1,14 @@
-// ===== Authentication Types (migrated from signin.ts) =====
+// ===== Authentication Types =====
+
+/**
+ * Login status enum
+ */
+export enum LoginStatus {
+	Success = 'ok',
+	MFARequired = 'mfa_required',
+	TeamSelectionRequired = 'team_selection_required',
+	InviteVerification = 'invite_verification_required'
+}
 
 /**
  * OAuth provider configuration
@@ -12,81 +22,6 @@ export interface SigninProvider {
 	text_color?: string
 	client_id: string
 	response_mode?: string
-}
-
-/**
- * Signin configuration response
- */
-export interface SigninConfig {
-	title: string
-	description: string
-	success_url: string
-	failure_url?: string
-	logout_redirect?: string
-	form: {
-		username: {
-			placeholder: string
-			fields: string[]
-		}
-		password: {
-			placeholder: string
-		}
-		captcha: {
-			type: 'image' | 'turnstile'
-			options?: {
-				secret?: string
-				sitekey?: string
-			}
-		}
-		forgot_password_link: boolean
-		remember_me: boolean
-		register_link: string
-		terms_of_service_link: string
-		privacy_policy_link: string
-	}
-	token: {
-		expires_in: string
-		remember_me_expires_in: string
-	}
-	third_party: {
-		register: {
-			auto: boolean
-			role: string
-		}
-		providers: SigninProvider[]
-	}
-}
-
-/**
- * Signin request payload
- */
-export interface SigninRequest {
-	username: string
-	password: string
-	remember?: boolean
-	captcha_code?: string
-	captcha_id?: string
-}
-
-/**
- * Signin response data
- */
-export interface SigninResponse {
-	access_token?: string
-	refresh_token?: string
-	expires_in?: number
-	mfa_enabled?: boolean
-	user?: {
-		id: string
-		username: string
-		email?: string
-		name?: string
-		avatar?: string
-		roles?: string[]
-		scope?: string
-		features?: object
-	}
-	csrf_token?: string
 }
 
 export interface OAuthAuthorizationURLResponse {
@@ -114,6 +49,7 @@ export interface OAuthAuthbackResponse {
 	expires_in?: number
 	refresh_token_expires_in?: number
 	mfa_enabled?: boolean
+	status?: LoginStatus
 	error?: string
 	error_description?: string
 }
@@ -123,8 +59,10 @@ export interface OAuthAuthbackResponse {
  * Contains validated user info and authentication metadata
  */
 export interface OAuthAuthResult {
-	/** Validated user information from ID token */
-	user: UserInfo
+	/** Login status */
+	status: LoginStatus
+	/** Validated user information from ID token (only available when status is Success) */
+	user?: UserInfo
 	/** OAuth provider identifier */
 	provider?: string
 	/** Authentication timestamp */
@@ -141,6 +79,14 @@ export interface OAuthAuthResult {
 
 	/** Logout redirect */
 	logout_redirect?: string
+
+	/** Session ID (for MFA or team selection) */
+	session_id?: string
+
+	access_token?: string
+	expires_in?: number | number
+	refresh_token?: string
+	refresh_token_expires_in?: number
 }
 
 /**
@@ -209,8 +155,52 @@ export interface UserInfo {
 	scope?: string
 	/** User's features */
 	features?: object
+	/** Yao user ID (original user ID) */
+	'yao:user_id'?: string
+	/** Yao tenant ID */
+	'yao:tenant_id'?: string
+	/** Yao team ID */
+	'yao:team_id'?: string
+	/** Yao team information */
+	'yao:team'?: TeamInfo
+	/** Whether the user is the owner of the team */
+	'yao:is_owner'?: boolean
+	/** Yao user type ID */
+	'yao:type_id'?: string
+	/** Yao user type information */
+	'yao:type'?: TypeInfo
 	/** Additional custom claims */
 	[key: string]: any
+}
+
+/**
+ * Team information
+ */
+export interface TeamInfo {
+	/** Team identifier */
+	team_id?: string
+	/** Team logo URL */
+	logo?: string
+	/** Team name */
+	name?: string
+	/** Team owner user ID */
+	owner_id?: string
+	/** Team description */
+	description?: string
+	/** Timestamp when team was last updated */
+	updated_at?: number
+}
+
+/**
+ * User type information
+ */
+export interface TypeInfo {
+	/** User type identifier */
+	type_id?: string
+	/** User type name */
+	name?: string
+	/** User type locale */
+	locale?: string
 }
 
 /**
@@ -245,16 +235,208 @@ export interface CaptchaResponse {
 	expires_in?: number // Captcha expiration time in seconds
 }
 
+/**
+ * Invitation code page configuration
+ */
+export interface InvitePageConfig {
+	title?: string // Page title for invite code verification
+	description?: string // Description text for invite code page
+	placeholder?: string // Placeholder text for invite code input
+	apply_link?: string // Optional link to apply for invitation code
+	apply_prompt?: string // Prompt text before apply link (e.g., "Don't have an invitation code?")
+	apply_text?: string // Text for apply link (e.g., "Apply for invitation code")
+}
+
+/**
+ * Entry configuration response (unified login + register)
+ */
+export interface EntryConfig {
+	title: string
+	description: string
+	success_url: string
+	failure_url?: string
+	logout_redirect?: string
+	auto_login?: boolean
+	role?: string
+	type?: string
+	form?: {
+		username?: {
+			placeholder: string
+			fields: string[]
+		}
+		password?: {
+			placeholder: string
+		}
+		captcha?: {
+			type: 'image' | 'turnstile'
+			options?: {
+				secret?: string
+				sitekey?: string
+			}
+		}
+		remember_me?: boolean
+		forgot_password_link?: boolean
+		terms_of_service_link?: string
+		privacy_policy_link?: string
+	}
+	token?: {
+		expires_in?: string
+		remember_me_expires_in?: string
+	}
+	invite_required?: boolean
+	invite?: InvitePageConfig
+	third_party?: {
+		providers: SigninProvider[]
+	}
+}
+
+/**
+ * Entry request payload (unified login/register)
+ */
+export interface EntryRequest {
+	email: string
+	captcha_code?: string
+	captcha_id?: string
+	locale?: string
+}
+
+/**
+ * Entry response data (unified login/register)
+ */
+export interface EntryResponse {
+	success: boolean
+	message: string
+	verification_required: boolean
+	email: string
+	next_step?: string
+}
+
+/**
+ * Entry verification status enum
+ */
+export enum EntryVerificationStatus {
+	Login = 'login',
+	Register = 'register'
+}
+
+/**
+ * Entry verify request payload
+ */
+export interface EntryVerifyRequest {
+	username: string // Email or mobile
+	captcha_id?: string
+	captcha?: string
+	locale?: string
+}
+
+/**
+ * Entry verify response data
+ */
+export interface EntryVerifyResponse {
+	status: EntryVerificationStatus // "login" or "register"
+	access_token: string // Temporary token for next step
+	expires_in: number // Token expiration in seconds
+	token_type: string // Token type (Bearer)
+	scope: string // Token scope
+	user_exists: boolean // Whether user exists
+	verification_sent?: boolean // Whether verification code was sent (for register)
+	otp_id?: string // OTP ID for verification code (for register)
+}
+
+/**
+ * Entry register request payload
+ */
+export interface EntryRegisterRequest {
+	name?: string // User's display name (optional)
+	password: string
+	confirm_password?: string
+	otp_id?: string // OTP ID from entry verify response
+	verification_code?: string // Verification code from email/SMS
+	locale?: string
+}
+
+/**
+ * Entry login request payload
+ */
+export interface EntryLoginRequest {
+	password: string
+	remember_me?: boolean
+	locale?: string
+}
+
+/**
+ * Entry send OTP response
+ */
+export interface EntrySendOTPResponse {
+	otp_id: string
+	expires_in?: number
+}
+
+/**
+ * Entry login/register response data
+ */
+export interface EntryAuthResponse {
+	user_id?: string // User ID (optional, for registration)
+	message?: string // Success message (optional, for registration)
+	session_id?: string
+	id_token?: string
+	access_token?: string
+	refresh_token?: string
+	expires_in?: number
+	refresh_token_expires_in?: number
+	mfa_enabled?: boolean
+	status?: LoginStatus
+}
+
 // ===== User Management Types =====
+/**
+ * User Profile (OIDC UserInfo)
+ * Returned by GET /api/__yao/user/profile
+ */
 export interface UserProfile {
-	id: string
-	username: string
-	email?: string
-	name?: string
-	avatar?: string
-	roles?: string[]
-	scope?: string
-	features?: object
+	/** OIDC Standard Claims */
+	sub: string // Subject identifier (required)
+	name?: string // Full name
+	given_name?: string // Given name(s) or first name(s)
+	family_name?: string // Surname(s) or last name(s)
+	middle_name?: string // Middle name(s)
+	nickname?: string // Casual name
+	preferred_username?: string // Shorthand name
+	profile?: string // Profile page URL
+	picture?: string // Profile picture URL
+	website?: string // Web page or blog URL
+	email?: string // Email address
+	email_verified?: boolean // Email verification status
+	gender?: string // Gender
+	birthdate?: string // Birthday (YYYY-MM-DD format)
+	zoneinfo?: string // Time zone info
+	locale?: string // Locale (language-country)
+	phone_number?: string // Phone number
+	phone_number_verified?: boolean // Phone verification status
+	updated_at?: number // Time of last update (seconds since epoch)
+
+	/** OIDC Address Claim */
+	address?: {
+		formatted?: string
+		street_address?: string
+		locality?: string
+		region?: string
+		postal_code?: string
+		country?: string
+	}
+
+	/** Yao Custom Claims */
+	'yao:user_id'?: string // Yao user ID (original user ID)
+	'yao:tenant_id'?: string // Yao tenant ID
+	'yao:team_id'?: string // Yao team ID
+	'yao:team'?: {
+		team_id?: string
+		name?: string
+		logo?: string
+		description?: string
+		owner_id?: string
+	}
+	'yao:is_owner'?: boolean // Is owner of current team
 }
 
 export interface UserPreferences {
@@ -300,24 +482,44 @@ export interface UserCredits {
  * Team response from API
  */
 export interface UserTeam {
-	id: number
 	team_id: string
 	name: string
+	display_name?: string
 	description?: string
+	website?: string
+	logo?: string
 	owner_id: string
 	status: string
+	type_id?: string
+	type?: string
 	is_verified: boolean
 	verified_by?: string
 	verified_at?: string
 	created_at: string
 	updated_at: string
+	role_id?: string // User's role in the team (returned by GetTeams)
+	is_owner?: boolean // Whether the current user is the owner of this team
 }
 
 /**
- * Team detail response with additional settings
+ * Team detail response with additional settings and contact information
  */
 export interface UserTeamDetail extends UserTeam {
-	settings?: Record<string, any>
+	contact_email?: string
+	contact_phone?: string
+	team_code?: string
+	team_code_type?: string
+	address?: string
+	street_address?: string
+	city?: string
+	state_province?: string
+	postal_code?: string
+	country?: string
+	country_name?: string
+	region?: string
+	zoneinfo?: string
+	settings?: TeamSettings
+	metadata?: Record<string, any>
 }
 
 /**
@@ -326,7 +528,8 @@ export interface UserTeamDetail extends UserTeam {
 export interface CreateTeamRequest {
 	name: string
 	description?: string
-	settings?: Record<string, any>
+	settings?: TeamSettings
+	locale?: string // Locale for default team configuration (e.g., type)
 }
 
 /**
@@ -335,21 +538,45 @@ export interface CreateTeamRequest {
 export interface UpdateTeamRequest {
 	name?: string
 	description?: string
-	settings?: Record<string, any>
+	settings?: TeamSettings
 }
 
 /**
- * Paginated list response for teams
+ * Request payload for selecting a team
  */
-export interface TeamListResponse {
-	data: UserTeam[]
-	total: number
-	page: number
-	pagesize: number
-	pagecnt: number
-	next: number
-	prev: number
+export interface SelectTeamRequest {
+	team_id: string
 }
+
+/**
+ * Response for team selection (returns new tokens with team_id)
+ */
+export interface SelectTeamResponse {
+	user_id: string
+	subject: string
+	access_token: string
+	id_token: string
+	refresh_token: string
+	expires_in: number
+	refresh_token_expires_in: number
+	token_type: string
+	scope: string
+	status: LoginStatus
+	user?: UserInfo
+}
+
+/**
+ * Request for accepting team invitation
+ */
+export interface AcceptInvitationRequest {
+	token: string
+}
+
+/**
+ * Team list response (simple array, no pagination)
+ * Returns all teams where the user is a member, including role information
+ */
+export type TeamListResponse = UserTeam[]
 
 export interface UserAPIKey {
 	id: string
@@ -359,4 +586,214 @@ export interface UserAPIKey {
 	expires_at?: string
 	created_at: string
 	last_used?: string
+}
+
+// ===== Team Configuration Types =====
+
+/**
+ * Team role configuration
+ */
+export interface TeamRole {
+	role_id: string
+	label: string
+	description: string
+	default?: boolean // Whether this role is the default role
+	hidden?: boolean // Whether this role is hidden from UI
+}
+
+/**
+ * Invitation configuration
+ */
+export interface InviteConfig {
+	channel?: string
+	expiry?: string
+	base_url?: string // Base URL for invitation links
+	templates?: Record<string, string>
+}
+
+/**
+ * Team configuration response (public endpoint)
+ */
+export interface TeamConfig {
+	roles?: TeamRole[]
+	invite?: InviteConfig
+}
+
+// ===== Settings Types =====
+
+/**
+ * Team-specific settings
+ */
+export interface TeamSettings {
+	/** Team UI theme (e.g., "light", "dark") */
+	theme?: string
+	/** Team visibility (e.g., "public", "private") */
+	visibility?: string
+}
+
+/**
+ * Member-specific settings
+ */
+export interface MemberSettings {
+	/** Whether to receive notifications */
+	notifications?: boolean
+	/** Custom permissions (e.g., ["read", "write"]) */
+	permissions?: string[]
+}
+
+/**
+ * Invitation-specific settings
+ */
+export interface InvitationSettings {
+	/** Whether to send invitation email */
+	send_email?: boolean
+	/** Locale for email template */
+	locale?: string
+}
+
+// ===== Team Member Management Types =====
+
+/**
+ * Team member response from API
+ */
+export interface TeamMember {
+	id: number
+	team_id: string
+	user_id: string
+	member_type: string
+	role_id: string
+	status: string
+	invited_by?: string
+	invited_at?: string
+	joined_at?: string
+	last_activity?: string
+	settings?: MemberSettings
+	created_at: string
+	updated_at: string
+}
+
+/**
+ * Team member detail response with additional user info
+ */
+export interface TeamMemberDetail extends TeamMember {
+	user_info?: Record<string, any>
+}
+
+/**
+ * Request payload for adding a team member directly
+ */
+export interface CreateMemberRequest {
+	user_id: string
+	member_type?: string // "user" or "robot"
+	role_id: string
+	settings?: MemberSettings
+}
+
+/**
+ * Request payload for updating a team member
+ */
+export interface UpdateMemberRequest {
+	role_id?: string
+	status?: string
+	settings?: MemberSettings
+	last_activity?: string
+}
+
+/**
+ * Paginated list response for team members
+ */
+export interface MemberListResponse {
+	data: TeamMember[]
+	total: number
+	page: number
+	pagesize: number
+	pagecnt: number
+	next: number
+	prev: number
+}
+
+// ===== Team Invitation Management Types =====
+
+/**
+ * Team invitation response from API
+ */
+export interface TeamInvitation {
+	id: number
+	invitation_id?: string // Business key for invitation
+	team_id: string
+	user_id: string
+	member_type: string
+	role_id: string
+	status: string
+	invited_by: string
+	invited_at: string
+	invitation_token?: string
+	invitation_link?: string // Full invitation link (constructed by backend)
+	invitation_expires_at?: string
+	message?: string
+	settings?: InvitationSettings
+	created_at: string
+	updated_at: string
+}
+
+/**
+ * Team invitation detail response with additional info
+ */
+export interface TeamInvitationDetail extends TeamInvitation {
+	user_info?: Record<string, any>
+	team_info?: Record<string, any>
+}
+
+/**
+ * Request payload for creating a team invitation
+ */
+export interface CreateInvitationRequest {
+	user_id?: string // Optional for unregistered users
+	email?: string // Email address (if not provided, will be read from user profile when user_id is provided)
+	member_type?: string // "user" or "robot"
+	role_id: string
+	message?: string
+	expiry?: string // Custom expiry duration (e.g., "1d", "8h"), defaults to team config
+	send_email?: boolean // Whether to send email (defaults to false)
+	locale?: string // Language code for email template (e.g., "zh-CN", "en")
+	settings?: InvitationSettings
+}
+
+/**
+ * Paginated list response for team invitations
+ */
+export interface InvitationListResponse {
+	data: TeamInvitation[]
+	total: number
+	page: number
+	pagesize: number
+	pagecnt: number
+	next: number
+	prev: number
+}
+
+/**
+ * Inviter's public information
+ */
+export interface InviterInfo {
+	user_id: string
+	name?: string
+	picture: string
+}
+
+/**
+ * Public invitation response (for invitation recipients)
+ * This type excludes sensitive information like tokens, database IDs, and timestamps
+ */
+export interface PublicInvitationResponse {
+	invitation_id: string
+	team_name: string
+	team_logo: string
+	team_description: string
+	role_label?: string
+	status: string
+	invited_at: string
+	invitation_expires_at?: string
+	message?: string
+	inviter_info?: InviterInfo
 }

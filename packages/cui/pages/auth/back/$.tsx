@@ -6,11 +6,19 @@ import { useGlobal } from '@/context/app'
 import { useIntl } from '@/hooks'
 import AuthLayout from '../components/AuthLayout'
 import styles from './index.less'
-import { OAuthAuthbackParams, User, UserInfo, OAuthAuthResult } from '@/openapi'
+import { OAuthAuthbackParams, User, UserInfo, OAuthAuthResult, LoginStatus } from '@/openapi'
 import { AfterLogin } from '../auth'
 
 // Required parameters for OAuth callback
 const requiredParams = ['code', 'state', 'provider']
+
+// Cookie 工具函数
+const getCookie = (name: string): string | null => {
+	const value = `; ${document.cookie}`
+	const parts = value.split(`; ${name}=`)
+	if (parts.length === 2) return parts.pop()?.split(';').shift() || null
+	return null
+}
 
 // 浏览器语言检测工具函数
 const getBrowserLanguage = (): string => {
@@ -41,7 +49,6 @@ const AuthBack = () => {
 	const [success, setSuccess] = useState(false)
 	const [entry, setEntry] = useState<string>('')
 	const [authResult, setAuthResult] = useState<OAuthAuthResult | null>(null)
-	const [countdown, setCountdown] = useState(20)
 	const [oauthParams, setOauthParams] = useState<OAuthAuthbackParams>({
 		code: '',
 		state: '',
@@ -104,7 +111,10 @@ const AuthBack = () => {
 				}
 
 				// AuthBack Signin
-				const signinRes = await user.auth.OAuthCallback(params.provider, params)
+				// Add locale to params before sending
+				const authParams = { ...params, locale: currentLocale }
+				const signinRes = await user.auth.OAuthCallback(params.provider, authParams)
+
 				if (user.IsError(signinRes)) {
 					const errorMsg = signinRes.error?.error_description || 'OAuth authentication failed'
 					setError(errorMsg)
@@ -113,40 +123,68 @@ const AuthBack = () => {
 					return
 				}
 
-				// Login successful
-				// console.log('AuthBack success:', signinRes.data)
+				// Check login status and handle accordingly
+				const status = signinRes.data?.status
 
-				// Save user info to global state
-				if (signinRes.data?.user) {
-					// console.log('userInfo', signinRes.data.user)
-					global.setUserInfo(signinRes.data.user)
+				// Handle MFA required
+				if (status === LoginStatus.MFARequired) {
+					history.push('/auth/entry/mfa')
+					return
 				}
 
-				// Set success state
-				setAuthResult(signinRes.data || null)
+				// Handle team selection required
+				if (status === LoginStatus.TeamSelectionRequired) {
+					history.push('/team/select')
+					return
+				}
 
-				// After Login
-				try {
-					const config = await user.auth.GetLoginConfig(currentLocale)
-					if (user.IsError(config)) {
-						throw new Error(config.error?.error_description || 'Failed to get config')
+				// Handle invite verification required
+				if (status === LoginStatus.InviteVerification) {
+					// Store temporary access token for invite verification
+					if (signinRes.data?.access_token) {
+						sessionStorage.setItem('invite_access_token', signinRes.data.access_token)
 					}
+					history.push('/auth/entry/invite')
+					return
+				}
 
+				// Login successful (status === LoginStatus.Success)
+				// Set success state for UI display
+				setAuthResult(signinRes.data || null)
+				setSuccess(true)
+				setLoading(false)
+
+				// After Login - 直接读取 cookie 中预设的跳转地址
+				try {
+					// 读取 cookie 中预设的跳转地址
+					const loginRedirect = getCookie('login_redirect') || '/auth/helloworld'
+					const logoutRedirect = getCookie('logout_redirect') || '/'
+
+					// AfterLogin will handle all user info setup (global.setUserInfo, global.user, local.user, etc.)
 					const entry = await AfterLogin(global, {
 						user: signinRes.data?.user || ({} as UserInfo),
-						entry: config.data?.success_url || '',
-						logout_redirect: config.data?.logout_redirect || '/'
+						entry: loginRedirect,
+						logout_redirect: logoutRedirect
 					})
 					setEntry(entry)
+
+					// 立即跳转
+					message.success(
+						currentLocale.startsWith('zh')
+							? '登录成功！正在跳转...'
+							: 'Login successful! Redirecting...'
+					)
+					setTimeout(() => {
+						window.location.href = loginRedirect
+					}, 500)
 				} catch (error) {
 					console.error('Failed to setup user info:', error)
 					message.error('Failed to setup user info, please try again')
 					setError('Failed to setup user info, please try again')
+					setLoading(false)
+					setSuccess(false)
 					return
 				}
-
-				setLoading(false)
-				setSuccess(true)
 			} catch (error) {
 				console.error('Failed to initialize auth back:', error)
 				const errorMsg = error instanceof Error ? error.message : 'Failed to process OAuth callback'
@@ -159,24 +197,6 @@ const AuthBack = () => {
 
 		initAuthBack()
 	}, [window.$app?.openapi])
-
-	// 倒计时跳转逻辑
-	useEffect(() => {
-		if (success && countdown > 0) {
-			const timer = setTimeout(() => {
-				setCountdown(countdown - 1)
-			}, 1000)
-			return () => clearTimeout(timer)
-		} else if (success && countdown === 0) {
-			// 跳转到 /helloworld
-			history.push(entry || '/auth/helloworld')
-		}
-	}, [success, countdown])
-
-	// 手动跳转
-	const handleNavigate = () => {
-		history.push(entry || '/auth/helloworld')
-	}
 
 	// 渲染加载状态
 	const renderLoading = () => (
@@ -227,7 +247,6 @@ const AuthBack = () => {
 							<p className={styles.userProvider}>
 								{currentLocale.startsWith('zh') ? '通过' : 'via'} {oauthParams.provider}
 							</p>
-							<p> {authResult.user.mfa_enabled ? 'MFA 已启用' : 'MFA 未启用'}</p>
 						</div>
 					</div>
 				)}
@@ -235,17 +254,9 @@ const AuthBack = () => {
 				<div className={styles.authbackActions}>
 					<p className={styles.countdownText}>
 						{currentLocale.startsWith('zh')
-							? `${countdown} 秒后自动跳转...`
-							: `Redirecting in ${countdown} seconds...`}
+							? '正在为您准备工作空间...'
+							: 'Preparing your workspace...'}
 					</p>
-					<Button
-						type='primary'
-						size='large'
-						onClick={handleNavigate}
-						className={styles.continueButton}
-					>
-						{currentLocale.startsWith('zh') ? '立即进入' : 'Continue Now'}
-					</Button>
 				</div>
 			</div>
 		</div>
