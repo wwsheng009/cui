@@ -1,22 +1,38 @@
 import { useState, useEffect } from 'react'
 import { Form, message } from 'antd'
 import { getLocale } from '@umijs/max'
+import { useGlobal } from '@/context/app'
+import { local } from '@yaoapp/storex'
 import { Button } from '@/components/ui'
 import Icon from '@/widgets/Icon'
+import UserAvatar from '@/widgets/UserAvatar'
 import { User } from '@/openapi/user'
 import { CreateTeamRequest, UserTeamDetail, TeamMember, TeamInvitation, TeamConfig } from '@/openapi/user/types'
+import { Can } from '@/pages/auth/auth'
 import MemberList from './MemberList'
-import InvitationList from './InvitationList'
 import InviteForm from './InviteForm'
 import TeamEditForm from './TeamEditForm'
 import CreateTeamForm from './CreateTeamForm'
-import AddAIMemberWizard, { AIMemberValues } from './AddAIMemberWizard'
+import AddAIMemberWizard from './AddAIMemberWizard'
+import EditAIMember from './EditAIMember'
+import type { AIMemberValues } from './AddAIMemberWizard'
 import styles from './index.less'
+
+// Team feature permissions domain and feature keys
+const TEAM_DOMAIN = 'user/team'
+const TEAM_FEATURES = {
+	EDIT: 'team:edit',
+	INVITE: 'team:member:invite',
+	ROBOT_CREATE: 'team:member:robot:create',
+	ROBOT_EDIT: 'team:member:robot:edit',
+	MEMBER_REMOVE: 'team:member:remove'
+} as const
 
 const Team = () => {
 	const locale = getLocale()
 	const is_cn = locale === 'zh-CN'
 	const [form] = Form.useForm()
+	const global = useGlobal()
 
 	const [loading, setLoading] = useState(true)
 	const [configLoading, setConfigLoading] = useState(true)
@@ -24,16 +40,27 @@ const Team = () => {
 	const [apiClient, setApiClient] = useState<User | null>(null)
 	const [config, setConfig] = useState<TeamConfig | null>(null)
 	const [members, setMembers] = useState<TeamMember[]>([])
-	const [invitations, setInvitations] = useState<TeamInvitation[]>([])
 	const [inviteModalVisible, setInviteModalVisible] = useState(false)
 	const [inviting, setInviting] = useState(false)
 	const [addAIModalVisible, setAddAIModalVisible] = useState(false)
 	const [addingAI, setAddingAI] = useState(false)
+	const [editAIModalVisible, setEditAIModalVisible] = useState(false)
+	const [editingAIMember, setEditingAIMember] = useState<TeamMember | null>(null)
+	const [updatingAI, setUpdatingAI] = useState(false)
 	const [editingTeam, setEditingTeam] = useState(false)
 	const [updatingTeam, setUpdatingTeam] = useState(false)
 	const [teamForm] = Form.useForm()
 	const [inviteLink, setInviteLink] = useState('')
 	const [generatingLink, setGeneratingLink] = useState(false)
+
+	// Team permissions state
+	const [permissions, setPermissions] = useState({
+		canEditTeam: false,
+		canInviteMembers: false,
+		canCreateRobot: false,
+		canEditRobot: false,
+		canRemoveMembers: false
+	})
 
 	useEffect(() => {
 		const initializeAPI = async () => {
@@ -41,17 +68,34 @@ const Team = () => {
 				const client = new User(window.$app.openapi)
 				setApiClient(client)
 
-				// Load team configuration
 				try {
 					setConfigLoading(true)
-					const configResponse = await client.teams.GetConfig(locale)
+
+					// Load team configuration and permissions in parallel
+					const [configResponse, features] = await Promise.all([
+						client.teams.GetConfig(locale),
+						Can(Object.values(TEAM_FEATURES), TEAM_DOMAIN)
+					])
+
+					// Handle config response
 					if (!client.IsError(configResponse) && configResponse.data) {
 						setConfig(configResponse.data)
 					} else {
 						console.error('Failed to load team config:', configResponse.error)
 					}
+
+					// Handle permissions
+					if (typeof features === 'object') {
+						setPermissions({
+							canEditTeam: features[TEAM_FEATURES.EDIT] || false,
+							canInviteMembers: features[TEAM_FEATURES.INVITE] || false,
+							canCreateRobot: features[TEAM_FEATURES.ROBOT_CREATE] || false,
+							canEditRobot: features[TEAM_FEATURES.ROBOT_EDIT] || false,
+							canRemoveMembers: features[TEAM_FEATURES.MEMBER_REMOVE] || false
+						})
+					}
 				} catch (error) {
-					console.error('Failed to load team config:', error)
+					console.error('Failed to load team config or permissions:', error)
 				} finally {
 					setConfigLoading(false)
 				}
@@ -80,35 +124,31 @@ const Team = () => {
 						// 用户还没有团队
 						setTeam(null)
 						setMembers([])
-						setInvitations([])
 					} else {
 						console.error('Failed to load current team:', teamResponse.error)
 						message.error(is_cn ? '加载团队信息失败' : 'Failed to load team data')
 						setTeam(null)
 						setMembers([])
-						setInvitations([])
 					}
 				} else if (teamResponse.data) {
 					// 用户已有团队，设置团队信息
 					setTeam(teamResponse.data)
 					teamForm.setFieldsValue({
 						name: teamResponse.data.name,
-						description: teamResponse.data.description
+						description: teamResponse.data.description,
+						avatar: teamResponse.data.logo
 					})
 
-					// 加载成员和邀请数据
+					// 加载成员数据（包括待处理的邀请）
 					try {
-						const [membersResponse, invitationsResponse] = await Promise.all([
-							apiClient.teams.GetMembers(teamResponse.data.team_id, {
-								page: 1,
-								pagesize: 100
-							}),
-							apiClient.teams.GetInvitations(teamResponse.data.team_id, {
+						const membersResponse = await apiClient.teams.GetMembers(
+							teamResponse.data.team_id,
+							{
 								page: 1,
 								pagesize: 100,
-								status: 'pending'
-							})
-						])
+								locale: locale
+							}
+						)
 
 						if (!apiClient.IsError(membersResponse) && membersResponse.data) {
 							setMembers(membersResponse.data.data || [])
@@ -116,17 +156,9 @@ const Team = () => {
 							console.error('Failed to load members:', membersResponse.error)
 							setMembers([])
 						}
-
-						if (!apiClient.IsError(invitationsResponse) && invitationsResponse.data) {
-							setInvitations(invitationsResponse.data.data || [])
-						} else {
-							console.error('Failed to load invitations:', invitationsResponse.error)
-							setInvitations([])
-						}
 					} catch (error) {
-						console.error('Failed to load members/invitations:', error)
+						console.error('Failed to load members:', error)
 						setMembers([])
-						setInvitations([])
 					}
 				}
 			} catch (error) {
@@ -172,7 +204,17 @@ const Team = () => {
 
 			const newInvitation = response.data
 			if (newInvitation) {
-				setInvitations((prev) => [...prev, newInvitation])
+				// 重新加载成员列表以包含新邀请
+				if (team.team_id) {
+					const membersResponse = await apiClient.teams.GetMembers(team.team_id, {
+						page: 1,
+						pagesize: 100,
+						locale: locale
+					})
+					if (!apiClient.IsError(membersResponse) && membersResponse.data) {
+						setMembers(membersResponse.data.data || [])
+					}
+				}
 				setInviteModalVisible(false)
 				form.resetFields()
 				message.success(is_cn ? '邀请发送成功' : 'Invitation sent successfully')
@@ -221,7 +263,8 @@ const Team = () => {
 					setTeam(teamDetailResponse.data)
 					teamForm.setFieldsValue({
 						name: teamDetailResponse.data.name,
-						description: teamDetailResponse.data.description
+						description: teamDetailResponse.data.description,
+						avatar: teamDetailResponse.data.logo
 					})
 				} else {
 					// 如果获取详情失败，使用基本信息构造UserTeamDetail类型
@@ -231,36 +274,27 @@ const Team = () => {
 					})
 					teamForm.setFieldsValue({
 						name: newTeam.name,
-						description: newTeam.description
+						description: newTeam.description,
+						avatar: newTeam.logo
 					})
 				}
 
-				// 加载成员和邀请数据
+				// 加载成员数据（包括待处理的邀请）
 				try {
-					const [membersResponse, invitationsResponse] = await Promise.all([
-						apiClient.teams.GetMembers(newTeam.team_id, { page: 1, pagesize: 100 }),
-						apiClient.teams.GetInvitations(newTeam.team_id, {
-							page: 1,
-							pagesize: 100,
-							status: 'pending'
-						})
-					])
+					const membersResponse = await apiClient.teams.GetMembers(newTeam.team_id, {
+						page: 1,
+						pagesize: 100,
+						locale: locale
+					})
 
 					if (!apiClient.IsError(membersResponse) && membersResponse.data) {
 						setMembers(membersResponse.data.data || [])
 					} else {
 						setMembers([])
 					}
-
-					if (!apiClient.IsError(invitationsResponse) && invitationsResponse.data) {
-						setInvitations(invitationsResponse.data.data || [])
-					} else {
-						setInvitations([])
-					}
 				} catch (error) {
-					console.error('Failed to load members/invitations:', error)
+					console.error('Failed to load members:', error)
 					setMembers([])
-					setInvitations([])
 				}
 
 				message.success(is_cn ? '团队创建成功' : 'Team created successfully')
@@ -285,8 +319,8 @@ const Team = () => {
 			// 构建更新请求数据
 			const updateTeamRequest = {
 				name: values.name,
-				description: values.description || undefined
-				// TODO: 后续支持avatar更新
+				description: values.description || undefined,
+				logo: values.avatar || undefined // avatar 字段映射到 logo
 			}
 
 			// 调用真实的团队更新API
@@ -309,6 +343,39 @@ const Team = () => {
 				}
 				setTeam(updatedTeamDetail)
 				setEditingTeam(false) // 保存后返回展示状态
+
+				// Update global user info if user is part of this team
+				if (global.user && global.user.team_id === updatedTeam.team_id) {
+					// Update App.User in global state and localStorage
+					global.user = {
+						...global.user,
+						team: {
+							...global.user.team,
+							team_id: updatedTeam.team_id,
+							name: updatedTeam.name,
+							logo: updatedTeam.logo,
+							description: updatedTeam.description,
+							owner_id: updatedTeam.owner_id
+						}
+					}
+					local.user = global.user
+
+					// Update UserInfo (OIDC format) in global state
+					if (global.userInfo && global.userInfo['yao:team']) {
+						global.setUserInfo({
+							...global.userInfo,
+							'yao:team': {
+								...global.userInfo['yao:team'],
+								team_id: updatedTeam.team_id,
+								name: updatedTeam.name,
+								logo: updatedTeam.logo,
+								description: updatedTeam.description,
+								owner_id: updatedTeam.owner_id
+							}
+						})
+					}
+				}
+
 				message.success(is_cn ? '团队信息已更新' : 'Team information updated')
 			}
 		} catch (error) {
@@ -351,6 +418,17 @@ const Team = () => {
 			if (invitation && invitation.invitation_link) {
 				// 直接使用后端返回的完整邀请链接
 				setInviteLink(invitation.invitation_link)
+				// 重新加载成员列表以包含新邀请
+				if (team.team_id) {
+					const membersResponse = await apiClient.teams.GetMembers(team.team_id, {
+						page: 1,
+						pagesize: 100,
+						locale: locale
+					})
+					if (!apiClient.IsError(membersResponse) && membersResponse.data) {
+						setMembers(membersResponse.data.data || [])
+					}
+				}
 				message.success(is_cn ? '邀请链接已生成' : 'Invite link generated')
 			} else {
 				message.error(
@@ -383,7 +461,7 @@ const Team = () => {
 				return
 			}
 
-			setMembers((prev) => prev.filter((member) => member.id.toString() !== memberId))
+			setMembers((prev) => prev.filter((member) => member.member_id !== memberId))
 			message.success(is_cn ? '成员已移除' : 'Member removed')
 		} catch (error) {
 			console.error('Error removing member:', error)
@@ -391,27 +469,26 @@ const Team = () => {
 		}
 	}
 
-	const handleCancelInvitation = async (invitationId: string) => {
+	const handleResendInvitation = async (invitationId: string) => {
 		if (!apiClient || !team) {
 			message.error(is_cn ? 'API未初始化或团队不存在' : 'API not initialized or team does not exist')
 			return
 		}
 
 		try {
-			const response = await apiClient.teams.DeleteInvitation(team.team_id, invitationId)
+			const response = await apiClient.teams.ResendInvitation(team.team_id, invitationId, locale)
 
 			if (apiClient.IsError(response)) {
-				console.error('Failed to cancel invitation:', response.error)
+				console.error('Failed to resend invitation:', response.error)
 				const errorMsg = response.error?.error_description || response.error?.error || 'Unknown error'
-				message.error(is_cn ? `取消邀请失败: ${errorMsg}` : `Failed to cancel invitation: ${errorMsg}`)
+				message.error(is_cn ? `重发邀请失败: ${errorMsg}` : `Failed to resend invitation: ${errorMsg}`)
 				return
 			}
 
-			setInvitations((prev) => prev.filter((inv) => inv.id.toString() !== invitationId))
-			message.success(is_cn ? '邀请已取消' : 'Invitation cancelled')
+			message.success(is_cn ? '邀请邮件已重新发送' : 'Invitation email resent successfully')
 		} catch (error) {
-			console.error('Error cancelling invitation:', error)
-			message.error(is_cn ? '取消邀请失败' : 'Failed to cancel invitation')
+			console.error('Error resending invitation:', error)
+			message.error(is_cn ? '重发邮请失败' : 'Failed to resend invitation')
 		}
 	}
 
@@ -459,20 +536,179 @@ const Team = () => {
 		try {
 			setAddingAI(true)
 
-			// Mock 添加 AI 成员 - 后续对接真实 API
-			await new Promise((resolve) => setTimeout(resolve, 1000))
+			// Call real API to create robot member
+			const response = await apiClient.teams.CreateRobotMember(team.team_id, values)
 
-			// 模拟成功添加
-			console.log('Adding AI member:', values)
+			if (apiClient.IsError(response)) {
+				throw new Error(response.error?.error_description || 'Failed to create robot member')
+			}
+
 			message.success(is_cn ? 'AI 成员添加成功' : 'AI member added successfully')
 
-			// 刷新成员列表
-			// TODO: 后续对接真实 API 后，重新加载成员列表
-		} catch (error) {
+			// Reload members list
+			if (team.team_id) {
+				const membersResponse = await apiClient.teams.GetMembers(team.team_id, {
+					page: 1,
+					pagesize: 100,
+					locale: locale
+				})
+				if (!apiClient.IsError(membersResponse) && membersResponse.data?.data) {
+					setMembers(membersResponse.data.data)
+				}
+			}
+		} catch (error: any) {
 			console.error('Error adding AI member:', error)
-			message.error(is_cn ? '添加 AI 成员失败' : 'Failed to add AI member')
+			message.error(
+				is_cn
+					? `添加 AI 成员失败: ${error.message || '未知错误'}`
+					: `Failed to add AI member: ${error.message || 'Unknown error'}`
+			)
 		} finally {
 			setAddingAI(false)
+		}
+	}
+
+	const handleEditAIMember = (memberId: string) => {
+		const member = members.find((m) => m.member_id === memberId)
+		if (member) {
+			setEditingAIMember(member)
+			setEditAIModalVisible(true)
+		}
+	}
+
+	const handleUpdateAIMember = async (memberId: string, values: AIMemberValues) => {
+		if (!apiClient || !team) {
+			message.error(is_cn ? 'API未初始化或团队不存在' : 'API not initialized or team does not exist')
+			return
+		}
+
+		try {
+			setUpdatingAI(true)
+
+			// Call real API to update robot member
+			const response = await apiClient.teams.UpdateRobotMember(team.team_id, memberId, {
+				name: values.name,
+				robot_email: values.robot_email, // Globally unique robot email (required)
+				email: values.email, // Display-only email (optional)
+				bio: values.bio,
+				role: values.role,
+				report_to: values.report_to,
+				prompt: values.prompt,
+				llm: values.llm,
+				agents: values.agents,
+				mcp_tools: values.mcp_tools,
+				autonomous_mode: values.autonomous_mode,
+				cost_limit: values.cost_limit
+			})
+
+			if (apiClient.IsError(response)) {
+				throw new Error(response.error?.error_description || 'Failed to update robot member')
+			}
+
+			message.success(is_cn ? 'AI 成员更新成功' : 'AI member updated successfully')
+
+			// Reload members list
+			if (team.team_id) {
+				const membersResponse = await apiClient.teams.GetMembers(team.team_id, {
+					page: 1,
+					pagesize: 100,
+					locale: locale
+				})
+				if (!apiClient.IsError(membersResponse) && membersResponse.data?.data) {
+					setMembers(membersResponse.data.data)
+				}
+			}
+
+			setEditAIModalVisible(false)
+			setEditingAIMember(null)
+		} catch (error: any) {
+			console.error('Error updating AI member:', error)
+			message.error(
+				is_cn
+					? `更新 AI 成员失败: ${error.message || '未知错误'}`
+					: `Failed to update AI member: ${error.message || 'Unknown error'}`
+			)
+		} finally {
+			setUpdatingAI(false)
+		}
+	}
+
+	/**
+	 * 更新 AI 成员头像
+	 * @param memberId - 成员 ID
+	 * @param avatar - 头像地址（wrapper 格式，如 __yao.attachment://file123）
+	 */
+	const handleUpdateAvatar = async (memberId: string, avatar: string) => {
+		if (!apiClient || !team) {
+			throw new Error(is_cn ? 'API未初始化或团队不存在' : 'API not initialized or team does not exist')
+		}
+
+		try {
+			// Find the member to verify it's a robot member
+			const member = members.find((m) => m.member_id === memberId)
+			if (!member || member.member_type !== 'robot') {
+				throw new Error(is_cn ? '成员不存在或不是 AI 成员' : 'Member not found or not an AI member')
+			}
+
+			// Call API to update only avatar (avatar is in wrapper format: {uploaderID}://{fileID})
+			const response = await apiClient.teams.UpdateRobotMember(team.team_id, memberId, {
+				avatar: avatar
+			})
+
+			if (apiClient.IsError(response)) {
+				throw new Error(response.error?.error_description || 'Failed to update avatar')
+			}
+
+			// Reload members list to reflect the change
+			if (team.team_id) {
+				const membersResponse = await apiClient.teams.GetMembers(team.team_id, {
+					page: 1,
+					pagesize: 100,
+					locale: locale
+				})
+				if (!apiClient.IsError(membersResponse) && membersResponse.data?.data) {
+					setMembers(membersResponse.data.data)
+				}
+			}
+		} catch (error: any) {
+			console.error('Error updating avatar:', error)
+			throw error
+		}
+	}
+
+	/**
+	 * 更新团队头像
+	 * @param avatar - 头像地址（wrapper 格式，如 __yao.attachment://file123）
+	 * @param fileId - 文件 ID
+	 */
+	const handleUpdateTeamAvatar = async (fileId: string, avatar: string) => {
+		if (!apiClient || !team) {
+			throw new Error(is_cn ? 'API未初始化或团队不存在' : 'API not initialized or team does not exist')
+		}
+
+		try {
+			// Call API to update team logo (avatar is in wrapper format: {uploaderID}://{fileID})
+			const response = await apiClient.teams.UpdateTeam(team.team_id, {
+				logo: avatar
+			})
+
+			if (apiClient.IsError(response)) {
+				throw new Error(response.error?.error_description || 'Failed to update team logo')
+			}
+
+			// Update local team state
+			if (response.data) {
+				setTeam((prevTeam) => ({
+					...prevTeam!,
+					logo: avatar
+				}))
+			}
+
+			message.success(is_cn ? '团队头像更新成功' : 'Team avatar updated successfully')
+		} catch (error: any) {
+			console.error('Error updating team avatar:', error)
+			message.error(is_cn ? '团队头像更新失败' : 'Failed to update team avatar')
+			throw error
 		}
 	}
 
@@ -531,24 +767,28 @@ const Team = () => {
 					</p>
 				</div>
 				<div className={styles.headerActions}>
-					<Button
-						type='primary'
-						size='small'
-						icon={<Icon name='material-psychology' size={12} />}
-						onClick={() => setAddAIModalVisible(true)}
-						disabled={!team || loading || configLoading}
-					>
-						{is_cn ? '添加 AI 成员' : 'Add AI Member'}
-					</Button>
-					<Button
-						type='primary'
-						size='small'
-						icon={<Icon name='material-person_add' size={12} />}
-						onClick={() => setInviteModalVisible(true)}
-						disabled={!team || loading || configLoading}
-					>
-						{is_cn ? '邀请成员' : 'Invite Member'}
-					</Button>
+					{permissions.canCreateRobot && (
+						<Button
+							type='primary'
+							size='small'
+							icon={<Icon name='material-psychology' size={12} />}
+							onClick={() => setAddAIModalVisible(true)}
+							disabled={!team || loading || configLoading}
+						>
+							{is_cn ? '添加 AI 成员' : 'Add AI Member'}
+						</Button>
+					)}
+					{permissions.canInviteMembers && (
+						<Button
+							type='primary'
+							size='small'
+							icon={<Icon name='material-person_add' size={12} />}
+							onClick={() => setInviteModalVisible(true)}
+							disabled={!team || loading || configLoading}
+						>
+							{is_cn ? '邀请成员' : 'Invite Member'}
+						</Button>
+					)}
 				</div>
 			</div>
 
@@ -556,46 +796,56 @@ const Team = () => {
 			<div className={styles.teamInfoPanel}>
 				<div className={styles.teamInfoSection}>
 					{/* 编辑按钮区域 */}
-					<div className={styles.editActions}>
-						{editingTeam ? (
-							<>
+					{permissions.canEditTeam && (
+						<div className={styles.editActions}>
+							{editingTeam ? (
+								<>
+									<Button
+										type='primary'
+										size='small'
+										icon={<Icon name='icon-check' size={12} />}
+										onClick={() => teamForm.submit()}
+										loading={updatingTeam}
+										disabled={updatingTeam}
+									>
+										{is_cn ? '保存' : 'Save'}
+									</Button>
+									<Button
+										size='small'
+										icon={<Icon name='icon-x' size={12} />}
+										onClick={() => {
+											setEditingTeam(false)
+											teamForm.setFieldsValue({
+												name: team?.name,
+												description: team?.description,
+												avatar: team?.logo
+											})
+										}}
+										disabled={updatingTeam}
+									>
+										{is_cn ? '取消' : 'Cancel'}
+									</Button>
+								</>
+							) : (
 								<Button
-									type='primary'
+									type='default'
 									size='small'
-									icon={<Icon name='icon-check' size={12} />}
-									onClick={() => teamForm.submit()}
-									loading={updatingTeam}
-									disabled={updatingTeam}
-								>
-									{is_cn ? '保存' : 'Save'}
-								</Button>
-								<Button
-									size='small'
-									icon={<Icon name='icon-x' size={12} />}
+									icon={<Icon name='material-edit' size={12} />}
 									onClick={() => {
-										setEditingTeam(false)
-										teamForm.setFieldsValue(team)
+										teamForm.setFieldsValue({
+											name: team?.name,
+											description: team?.description,
+											avatar: team?.logo
+										})
+										setEditingTeam(true)
 									}}
-									disabled={updatingTeam}
+									disabled={loading || configLoading}
 								>
-									{is_cn ? '取消' : 'Cancel'}
+									{is_cn ? '编辑' : 'Edit'}
 								</Button>
-							</>
-						) : (
-							<Button
-								type='default'
-								size='small'
-								icon={<Icon name='material-edit' size={12} />}
-								onClick={() => {
-									teamForm.setFieldsValue(team)
-									setEditingTeam(true)
-								}}
-								disabled={loading || configLoading}
-							>
-								{is_cn ? '编辑' : 'Edit'}
-							</Button>
-						)}
-					</div>
+							)}
+						</div>
+					)}
 
 					{editingTeam ? (
 						<TeamEditForm
@@ -607,9 +857,20 @@ const Team = () => {
 					) : (
 						<div className={styles.teamHeader}>
 							<div className={styles.teamAvatar}>
-								<div className={styles.avatarPlaceholder}>
-									<Icon name='material-group' size={24} />
-								</div>
+								<UserAvatar
+									size='xl'
+									shape='square'
+									borderRadius={12}
+									displayType='avatar'
+									data={{
+										id: team?.team_id || '',
+										avatar: team?.logo,
+										name: team?.name || 'Team'
+									}}
+									onUploadSuccess={
+										permissions.canEditTeam ? handleUpdateTeamAvatar : undefined
+									}
+								/>
 							</div>
 							<div className={styles.teamInfo}>
 								<h3 className={styles.teamName}>{team?.name}</h3>
@@ -646,21 +907,17 @@ const Team = () => {
 				</div>
 
 				<div className={styles.unifiedMembersList}>
-					{/* 团队成员列表 */}
 					<MemberList
 						members={members}
 						is_cn={is_cn}
 						getRoleDisplayName={getRoleDisplayName}
-						getStatusDisplayName={getStatusDisplayName}
-						onRemoveMember={handleRemoveMember}
-					/>
-
-					{/* 待处理邀请 */}
-					<InvitationList
-						invitations={invitations}
-						is_cn={is_cn}
-						getRoleDisplayName={getRoleDisplayName}
-						onCancelInvitation={handleCancelInvitation}
+						onRemoveMember={permissions.canRemoveMembers ? handleRemoveMember : undefined}
+						onEditAIMember={permissions.canEditRobot ? handleEditAIMember : undefined}
+						onResendInvitation={
+							permissions.canInviteMembers ? handleResendInvitation : undefined
+						}
+						baseInviteURL={window.location.origin + '/invite'}
+						onAvatarUpdate={handleUpdateAvatar}
 					/>
 				</div>
 			</div>
@@ -691,6 +948,24 @@ const Team = () => {
 				adding={addingAI}
 				members={members}
 				is_cn={is_cn}
+				teamId={team?.team_id}
+			/>
+
+			{/* 编辑 AI 成员 */}
+			<EditAIMember
+				visible={editAIModalVisible}
+				onClose={() => {
+					setEditAIModalVisible(false)
+					setEditingAIMember(null)
+				}}
+				onUpdate={handleUpdateAIMember}
+				member={editingAIMember}
+				config={config}
+				configLoading={configLoading}
+				updating={updatingAI}
+				members={members}
+				is_cn={is_cn}
+				teamId={team?.team_id}
 			/>
 		</div>
 	)

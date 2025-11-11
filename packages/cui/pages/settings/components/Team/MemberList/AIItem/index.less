@@ -1,5 +1,5 @@
-// 邀请卡片
-.invitationCard {
+// 成员卡片
+.memberCard {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -24,7 +24,7 @@
 	}
 }
 
-.invitationInfo {
+.memberInfo {
 	display: flex;
 	align-items: center;
 	gap: 14px;
@@ -32,32 +32,69 @@
 	min-width: 0;
 }
 
-.invitationAvatar {
+.memberAvatar {
 	flex-shrink: 0;
 	width: 44px;
 	height: 44px;
-	border-radius: 10px;
-	overflow: hidden;
-	background: var(--color_warning_bg);
-	color: var(--color_warning);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
 
-.invitationDetails {
+.memberDetails {
 	flex: 1;
 	min-width: 0;
 }
 
-.invitationEmail {
-	font-size: 12px;
-	color: var(--color_text_grey);
-	margin-bottom: 6px;
-	line-height: 1.4;
+.memberName {
+	font-size: 15px;
+	font-weight: 600;
+	color: var(--color_text);
+	margin-bottom: 4px;
+	line-height: 1.3;
+	display: flex;
+	align-items: center;
+	gap: 4px;
 }
 
-.invitationMeta {
+.aiBadge {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 2px 6px;
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	color: white;
+	border-radius: 10px;
+	font-size: 10px;
+	font-weight: 600;
+	line-height: 1.2;
+}
+
+.emailIcon {
+	display: inline-flex;
+	align-items: center;
+	color: var(--color_text_grey);
+	text-decoration: none;
+	transition: color 0.2s ease;
+	cursor: pointer;
+
+	&:hover {
+		color: var(--color_main);
+	}
+}
+
+.memberBio {
+	font-size: 12px;
+	color: var(--color_text_grey);
+	margin-top: 8px;
+	margin-bottom: 6px;
+	line-height: 1.4;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.memberMeta {
 	display: flex;
 	align-items: center;
 	gap: 6px;
@@ -66,23 +103,46 @@
 	flex-wrap: wrap;
 }
 
-.invitationRole {
-	padding: 3px 8px;
-	border-radius: 12px;
+.memberRole {
+	display: inline-flex;
+	padding: 2px 6px;
+	border-radius: 10px;
 	font-size: 11px;
 	font-weight: 500;
 	line-height: 1.2;
-	background: var(--color_info_bg);
-	color: var(--color_info);
+
+	&[data-role='owner'] {
+		background: var(--color_main);
+		color: white;
+	}
+
+	&[data-role='admin'] {
+		background: var(--color_warning_bg);
+		color: var(--color_warning);
+	}
+
+	&[data-role='member'] {
+		background: var(--color_neo_bg_field);
+		color: var(--color_neo_text_secondary);
+	}
 }
 
-.invitationActions {
+.languageModel {
+	padding: 2px 6px;
+	background: var(--color_neo_bg_field);
+	border-radius: 8px;
+	font-size: 10px;
+	font-weight: 500;
+	color: var(--color_neo_text_secondary);
+	font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+}
+
+.memberActions {
 	display: flex;
 	gap: 4px;
 	flex-shrink: 0;
 }
 
-// 操作按钮样式
 .actionButton {
 	color: var(--color_text_grey) !important;
 	border: none !important;
@@ -111,16 +171,37 @@
 	}
 }
 
-// 响应式样式
+.actionIcon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 6px;
+	color: var(--color_text_grey);
+	cursor: pointer;
+	transition: all 0.2s ease;
+
+	&:hover {
+		background: var(--color_bg_2);
+		color: var(--color_text);
+		transform: scale(1.1);
+	}
+
+	&:active {
+		transform: scale(0.95);
+	}
+}
+
 @media (max-width: 768px) {
-	.invitationCard {
+	.memberCard {
 		&:hover {
 			margin: 0 -20px;
 			padding: 16px 20px;
 		}
 	}
 
-	.invitationMeta {
+	.memberMeta {
 		flex-direction: column;
 		align-items: flex-start;
 		gap: 4px;
@@ -128,12 +209,12 @@
 }
 
 @media (max-width: 480px) {
-	.invitationAvatar {
+	.memberAvatar {
 		width: 36px;
 		height: 36px;
 	}
 
-	.invitationCard {
+	.memberCard {
 		padding: 12px 0;
 
 		&:hover {

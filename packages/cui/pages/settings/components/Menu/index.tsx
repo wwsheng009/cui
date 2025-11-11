@@ -18,6 +18,11 @@ interface MenuProps {
 	onChange: (key: string) => void
 }
 
+// Helper function to check if a path is an external URL
+const isExternalUrl = (path: string): boolean => {
+	return path.startsWith('http://') || path.startsWith('https://')
+}
+
 const Menu = ({ active, onChange }: MenuProps) => {
 	const locale = getLocale()
 	const is_cn = locale === 'zh-CN'
@@ -116,13 +121,43 @@ const Menu = ({ active, onChange }: MenuProps) => {
 				<div className={styles.scrollableContent}>
 					{currentUser && (
 						<div className={styles.user}>
-							<UserAvatar size={42} showCard={false} user={currentUser} />
+							<UserAvatar
+								size={42}
+								showCard={false}
+								// displayType='auto' 会自动判断是否显示组合模式
+								data={
+									isTeam
+										? {
+												id: String(currentUser.id),
+												name:
+													currentUser.member?.display_name ||
+													currentUser.name,
+												avatar:
+													currentUser.member?.avatar ||
+													currentUser.avatar,
+												team:
+													currentUser.team &&
+													currentUser.team.team_id
+														? {
+																team_id: currentUser
+																	.team.team_id,
+																logo: currentUser.team
+																	.logo,
+																name: currentUser.team
+																	.name
+														  }
+														: undefined
+										  }
+										: undefined
+								}
+							/>
 							<div className={styles.info}>
 								<div className={styles.firstLine}>
 									<span className={styles.name}>
 										{isTeam && currentUser.team?.name ? (
 											<>
-												{currentUser.name}
+												{currentUser.member?.display_name ||
+													currentUser.name}
 												<span className={styles.teamSeparator}>@</span>
 												<span className={styles.teamName}>
 													{currentUser.team.name}
@@ -142,10 +177,10 @@ const Menu = ({ active, onChange }: MenuProps) => {
 										<span>
 											{isTeam
 												? is_cn
-													? '团队账号'
+													? '团队'
 													: 'Team'
 												: is_cn
-												? '个人账号'
+												? '个人'
 												: 'Personal'}
 										</span>
 									</span>
@@ -178,28 +213,48 @@ const Menu = ({ active, onChange }: MenuProps) => {
 									{group.name[is_cn ? 'zh-CN' : 'en-US']}
 								</div>
 								<div className={styles.items}>
-									{group.items.map((item) => (
-										<div
-											key={item.key}
-											className={`${styles.item} ${
-												active === item.key ? styles.active : ''
-											}`}
-											onClick={() => onChange(item.key)}
-										>
-											<Icon
-												name={item.icon}
-												size={16}
-												className={
-													active === item.key
-														? styles.menuIconActive
-														: styles.menuIcon
-												}
-											/>
-											<span className={styles.text}>
-												{item.name[is_cn ? 'zh-CN' : 'en-US']}
-											</span>
-										</div>
-									))}
+									{group.items.map((item) => {
+										const isExternal = isExternalUrl(item.path)
+										return (
+											<div
+												key={item.key}
+												className={`${styles.item} ${
+													active === item.key ? styles.active : ''
+												}`}
+												onClick={() => {
+													if (isExternal) {
+														window.open(
+															item.path,
+															'_blank',
+															'noopener,noreferrer'
+														)
+													} else {
+														onChange(item.key)
+													}
+												}}
+											>
+												<Icon
+													name={item.icon}
+													size={16}
+													className={
+														active === item.key
+															? styles.menuIconActive
+															: styles.menuIcon
+													}
+												/>
+												<span className={styles.text}>
+													{item.name[is_cn ? 'zh-CN' : 'en-US']}
+												</span>
+												{isExternal && (
+													<Icon
+														name='material-open_in_new'
+														size={12}
+														className={styles.externalIcon}
+													/>
+												)}
+											</div>
+										)
+									})}
 								</div>
 							</div>
 						))}

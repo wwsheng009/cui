@@ -1,5 +1,6 @@
 import { OpenAPI } from '../openapi'
 import { ApiResponse } from '../types'
+import { BuildURL } from '../lib/utils'
 import { UserAuth } from './auth'
 import {
 	UserTeam,
@@ -11,8 +12,11 @@ import {
 	TeamListResponse,
 	TeamMember,
 	TeamMemberDetail,
-	CreateMemberRequest,
+	CreateRobotMemberRequest,
 	UpdateMemberRequest,
+	UpdateMemberProfileRequest,
+	UpdateRobotMemberRequest,
+	MemberListOptions,
 	MemberListResponse,
 	TeamInvitation,
 	TeamInvitationDetail,
@@ -40,10 +44,7 @@ export class UserTeams {
 		const params = new URLSearchParams()
 		if (locale) params.append('locale', locale)
 
-		const queryString = params.toString()
-		const url = queryString ? `/user/teams/config?${queryString}` : '/user/teams/config'
-
-		return this.api.Get<TeamConfig>(url)
+		return this.api.Get<TeamConfig>(BuildURL('/user/teams/config', params))
 	}
 
 	// ===== Team CRUD =====
@@ -127,27 +128,45 @@ export class UserTeams {
 	// ===== Team Member Management =====
 
 	/**
-	 * Get team members with pagination and filtering
+	 * Get team members with pagination, filtering, sorting, and field selection
 	 * @param teamId Team ID to get members from
-	 * @param options Query parameters for pagination and filtering
+	 * @param options Query options for listing members
 	 */
-	async GetMembers(
-		teamId: string,
-		options?: {
-			page?: number
-			pagesize?: number
-			status?: string
+	async GetMembers(teamId: string, options?: MemberListOptions): Promise<ApiResponse<MemberListResponse>> {
+		const params: Record<string, string> = {}
+
+		if (options?.page) params.page = options.page.toString()
+		if (options?.pagesize) params.pagesize = options.pagesize.toString()
+		if (options?.status) params.status = options.status
+		if (options?.member_type) params.member_type = options.member_type
+		if (options?.role_id) params.role_id = options.role_id
+		if (options?.email) params.email = options.email
+		if (options?.display_name) params.display_name = options.display_name
+		if (options?.order) params.order = options.order
+		if (options?.fields && options.fields.length > 0) {
+			params.fields = options.fields.join(',')
 		}
-	): Promise<ApiResponse<MemberListResponse>> {
-		const params = new URLSearchParams()
-		if (options?.page) params.append('page', options.page.toString())
-		if (options?.pagesize) params.append('pagesize', options.pagesize.toString())
-		if (options?.status) params.append('status', options.status)
+		if (options?.locale) params.locale = options.locale
 
-		const queryString = params.toString()
-		const url = queryString ? `/user/teams/${teamId}/members?${queryString}` : `/user/teams/${teamId}/members`
+		return this.api.Get<MemberListResponse>(`/user/teams/${teamId}/members`, params)
+	}
 
-		return this.api.Get<MemberListResponse>(url)
+	/**
+	 * Check if robot email exists globally
+	 * @param teamId Team ID (for access control)
+	 * @param robotEmail Robot email to check
+	 */
+	async CheckRobotEmail(
+		teamId: string,
+		robotEmail: string
+	): Promise<ApiResponse<{ exists: boolean; robot_email: string }>> {
+		const query: Record<string, string> = {
+			robot_email: robotEmail
+		}
+		return this.api.Get<{ exists: boolean; robot_email: string }>(
+			`/user/teams/${teamId}/members/check-robot-email`,
+			query
+		)
 	}
 
 	/**
@@ -160,16 +179,20 @@ export class UserTeams {
 	}
 
 	/**
-	 * Add a new team member directly (without invitation)
-	 * @param teamId Team ID to add member to
-	 * @param member Member data to create
+	 * Create a new robot member for the team
+	 * @param teamId Team ID to add robot member to
+	 * @param robot Robot member data to create
 	 */
-	async CreateMember(teamId: string, member: CreateMemberRequest): Promise<ApiResponse<TeamMember>> {
-		return this.api.Post<TeamMember>(`/user/teams/${teamId}/members`, member)
+	async CreateRobotMember(
+		teamId: string,
+		robot: CreateRobotMemberRequest
+	): Promise<ApiResponse<{ member_id: number }>> {
+		return this.api.Post<{ member_id: number }>(`/user/teams/${teamId}/members/robots`, robot)
 	}
 
 	/**
-	 * Update team member by member_id
+	 * Update team member by member_id (admin operation)
+	 * Updates management fields like role_id and status
 	 * @param teamId Team ID
 	 * @param memberId Member ID to update
 	 * @param member Updated member data
@@ -178,8 +201,55 @@ export class UserTeams {
 		teamId: string,
 		memberId: string,
 		member: UpdateMemberRequest
-	): Promise<ApiResponse<TeamMember>> {
-		return this.api.Put<TeamMember>(`/user/teams/${teamId}/members/${memberId}`, member)
+	): Promise<ApiResponse<{ message: string }>> {
+		return this.api.Put<{ message: string }>(`/user/teams/${teamId}/members/${memberId}`, member)
+	}
+
+	/**
+	 * Get member profile (self-read only)
+	 * Allows members to read their own profile fields (display_name, bio, avatar, email)
+	 * @param teamId Team ID
+	 * @param userId User ID (must be the authenticated user's ID)
+	 */
+	async GetMemberProfile(
+		teamId: string,
+		userId: string
+	): Promise<ApiResponse<UpdateMemberProfileRequest & { user_id: string; team_id: string }>> {
+		return this.api.Get<UpdateMemberProfileRequest & { user_id: string; team_id: string }>(
+			`/user/teams/${teamId}/members/${userId}/profile`
+		)
+	}
+
+	/**
+	 * Update member profile (self-update only)
+	 * Allows members to update their own profile fields (display_name, bio, avatar, email)
+	 * @param teamId Team ID
+	 * @param userId User ID (must be the authenticated user's ID)
+	 * @param profile Updated profile data
+	 */
+	async UpdateMemberProfile(
+		teamId: string,
+		userId: string,
+		profile: UpdateMemberProfileRequest
+	): Promise<ApiResponse<{ user_id: string; message: string }>> {
+		return this.api.Put<{ user_id: string; message: string }>(
+			`/user/teams/${teamId}/members/${userId}/profile`,
+			profile
+		)
+	}
+
+	/**
+	 * Update robot member by member_id
+	 * @param teamId Team ID
+	 * @param memberId Member ID to update
+	 * @param robot Updated robot member data
+	 */
+	async UpdateRobotMember(
+		teamId: string,
+		memberId: string,
+		robot: UpdateRobotMemberRequest
+	): Promise<ApiResponse<{ message: string }>> {
+		return this.api.Put<{ message: string }>(`/user/teams/${teamId}/members/robots/${memberId}`, robot)
 	}
 
 	/**
@@ -226,12 +296,7 @@ export class UserTeams {
 		if (options?.pagesize) params.append('pagesize', options.pagesize.toString())
 		if (options?.status) params.append('status', options.status)
 
-		const queryString = params.toString()
-		const url = queryString
-			? `/user/teams/${teamId}/invitations?${queryString}`
-			: `/user/teams/${teamId}/invitations`
-
-		return this.api.Get<InvitationListResponse>(url)
+		return this.api.Get<InvitationListResponse>(BuildURL(`/user/teams/${teamId}/invitations`, params))
 	}
 
 	/**
@@ -259,9 +324,20 @@ export class UserTeams {
 	 * Resend team invitation by invitation_id
 	 * @param teamId Team ID
 	 * @param invitationId Invitation ID to resend
+	 * @param locale Optional locale for email template (defaults to "en")
 	 */
-	async ResendInvitation(teamId: string, invitationId: string): Promise<ApiResponse<{ message: string }>> {
-		return this.api.Put<{ message: string }>(`/user/teams/${teamId}/invitations/${invitationId}/resend`, {})
+	async ResendInvitation(
+		teamId: string,
+		invitationId: string,
+		locale?: string
+	): Promise<ApiResponse<{ message: string }>> {
+		const payload: Record<string, string> = {}
+		if (locale) payload.locale = locale
+
+		return this.api.Put<{ message: string }>(
+			`/user/teams/${teamId}/invitations/${invitationId}/resend`,
+			payload
+		)
 	}
 
 	/**

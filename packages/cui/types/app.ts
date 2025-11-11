@@ -399,6 +399,14 @@ export declare namespace App {
 				name?: string
 			}
 
+			/** Avatar service configuration for the application (Optional) */
+			avatar?: {
+				/** Uploader process for avatar files */
+				uploader?: string
+				/** Agent process for avatar handling */
+				agent?: string
+			}
+
 			/** menu config, default is { layout:"2-columns", hide:false, showName:false }  */
 			menu?: { layout: '1-column' | '2-columns'; hide?: boolean; showName?: boolean }
 
@@ -451,6 +459,14 @@ export declare namespace App {
 			type_id?: string
 			name?: string
 			locale?: string
+		}
+		// Member profile information (for team context)
+		member?: {
+			member_id?: string
+			display_name?: string
+			bio?: string
+			avatar?: string
+			email?: string
 		}
 	}
 

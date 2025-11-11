@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react'
-import { Avatar, Tooltip } from 'antd'
+import { Tooltip } from 'antd'
 import { UserTeam, UserProfile } from '@/openapi/user/types'
-import { App } from '@/types'
 import UserAvatar from '@/widgets/UserAvatar'
+import type { AvatarData } from '@/widgets/UserAvatar/types'
 import styles from './index.less'
 
 export interface TeamCardProps {
@@ -16,16 +16,25 @@ export interface TeamCardProps {
 }
 
 const TeamCard: React.FC<TeamCardProps> = ({ team, selected, roleLabel, ownerLabel, onClick, userProfile }) => {
-	// Convert UserProfile to App.User format for UserAvatar component
-	const personalUser = useMemo<App.User | null>(() => {
+	// Convert UserProfile to AvatarData format for UserAvatar component (personal account)
+	const personalAvatarData = useMemo<AvatarData | null>(() => {
 		if (!userProfile || team.team_id !== 'personal') return null
 		return {
 			id: userProfile['yao:user_id'] || userProfile.sub || '',
 			name: userProfile.name || '',
-			avatar: userProfile.picture || '',
-			type: 'user'
+			avatar: userProfile.picture || ''
 		}
 	}, [userProfile, team.team_id])
+
+	// Convert UserTeam to AvatarData format for UserAvatar component (team account)
+	const teamAvatarData = useMemo<AvatarData | null>(() => {
+		if (team.team_id === 'personal') return null
+		return {
+			id: team.team_id,
+			name: team.display_name || team.name,
+			avatar: team.logo
+		}
+	}, [team])
 
 	return (
 		<Tooltip
@@ -37,13 +46,22 @@ const TeamCard: React.FC<TeamCardProps> = ({ team, selected, roleLabel, ownerLab
 			<div className={`${styles.teamCard} ${selected ? styles.teamCardSelected : ''}`} onClick={onClick}>
 				{/* Avatar/Logo */}
 				<div className={styles.teamLogoWrapper}>
-					{team.team_id === 'personal' && personalUser ? (
-						<UserAvatar user={personalUser} size={40} showCard={false} forcePersonal={true} />
-					) : (
-						<Avatar size={40} src={team.logo} className={styles.teamLogo}>
-							{!team.logo && (team.display_name || team.name)[0].toUpperCase()}
-						</Avatar>
-					)}
+					{team.team_id === 'personal' && personalAvatarData ? (
+						<UserAvatar
+							data={personalAvatarData}
+							size={40}
+							showCard={false}
+							displayType='avatar'
+						/>
+					) : teamAvatarData ? (
+						<UserAvatar
+							data={teamAvatarData}
+							size={40}
+							showCard={false}
+							displayType='avatar'
+							shape='circle'
+						/>
+					) : null}
 				</div>
 
 				{/* Team Info */}
