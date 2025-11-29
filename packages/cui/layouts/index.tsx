@@ -15,6 +15,7 @@ import LoginWrapper from './wrappers/Login'
 import AuthWrapper from './wrappers/Auth'
 import AdminWrapper from './wrappers/Admin'
 import ChatWrapper from './wrappers/Chat'
+import ChatboxWrapper from './wrappers/Chatbox'
 
 import type { IPropsHelmet, IPropsLoginWrapper } from './types'
 
@@ -35,6 +36,11 @@ const STANDALONE_PAGES = new Map([
 
 // Check if current path matches any standalone page
 const isStandalonePage = (pathname: string): boolean => {
+	// Check for trace view mode: /trace/{id}/view
+	if (pathname.startsWith('/trace/') && pathname.endsWith('/view')) {
+		return true
+	}
+
 	return Array.from(STANDALONE_PAGES.values()).some((route) => {
 		// For routes ending with '/', use startsWith (e.g., /auth/back/, /team/invite/)
 		if (route.endsWith('/')) {
@@ -75,7 +81,7 @@ const Index = () => {
 		// Chat Layout
 		if (global.layout === 'Chat') {
 			console.log(pathname)
-			if (pathname === '/chat' || pathname === '/chat/') {
+			if (pathname === '/chat' || pathname === '/chat/' || pathname.startsWith('/chatdev')) {
 				global.setSidebarVisible(false)
 			}
 		}
@@ -129,11 +135,20 @@ const Index = () => {
 			)
 		}
 
+		// Force ChatboxWrapper for /chatdev route regardless of global.layout
+		if (pathname.startsWith('/chatdev')) {
+			return (
+				<ChatboxWrapper>
+					<Outlet />
+				</ChatboxWrapper>
+			)
+		}
+
 		if (global.layout === 'Chat') {
 			return (
-				<ChatWrapper>
+				<ChatboxWrapper>
 					<Outlet />
-				</ChatWrapper>
+				</ChatboxWrapper>
 			)
 		}
 

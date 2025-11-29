@@ -1,0 +1,352 @@
+@import '@/styles/preset/vars.less';
+
+.container {
+	position: relative;
+	width: 100%;
+	height: 100vh;
+	padding: 0;
+	margin: 0;
+	overflow: hidden;
+}
+
+.memorySection {
+	position: absolute;
+	top: 54px; // 下调位置，给 TraceInfo 留空间
+	left: 20px;
+	right: 20px;
+	display: flex;
+	gap: 12px;
+	z-index: 5;
+	pointer-events: none;
+
+	> * {
+		pointer-events: auto;
+	}
+}
+
+.infoPanel {
+	pointer-events: none;
+	
+	:global {
+		.react-flow__panel {
+			pointer-events: auto;
+			margin: 20px;
+		}
+	}
+}
+
+.traceInfoBox {
+	padding: 2px;
+	background: var(--color_bg);
+	border: 1px solid var(--color_border);
+	border-radius: 5px;
+	box-shadow: var(--shadow);
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 0;
+}
+
+.traceValue {
+	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+	font-size: 11px;
+	color: var(--color_text);
+	font-weight: 500;
+	padding: 3px 10px;
+}
+
+.traceStatus {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 3px 10px;
+	border-radius: 3px;
+	font-size: 10px;
+	font-weight: 600;
+	text-transform: uppercase;
+	margin-right: 2px;
+
+	&.pending {
+		background: var(--color_bg);
+		color: var(--color_text_grey);
+	}
+
+	&.running {
+		background: rgba(51, 113, 252, 0.1);
+		color: var(--color_main);
+	}
+
+	&.completed, &.success {
+		background: rgba(82, 196, 26, 0.1);
+		color: var(--color_success);
+	}
+
+	&.failed, &.error {
+		background: rgba(245, 34, 45, 0.1);
+		color: var(--color_danger);
+	}
+	
+	&.cancelled {
+		background: rgba(250, 173, 20, 0.1);
+		color: var(--color_warning);
+	}
+}
+
+.container {
+	// ReactFlow 容器样式覆盖
+	:global {
+		.react-flow {
+			width: 100%;
+			height: 100%;
+			background: var(--color_bg);
+		}
+
+		.react-flow__background {
+			// ReactFlow 自带的背景已经处理
+		}
+
+		// 控制面板样式 - 使用更高的优先级
+		.react-flow__controls.react-flow__controls {
+			position: fixed !important;
+			bottom: 20px !important;
+			right: 20px !important;
+			top: unset !important;
+			left: unset !important;
+			z-index: 999;
+			transform: none !important;
+
+			button {
+				background: var(--color_bg_menu);
+				border: 1px solid var(--color_border);
+				color: var(--color_text);
+				width: 24px;
+				height: 24px;
+				padding: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+
+				&:hover {
+					background: var(--color_bg_hover);
+				}
+
+				svg {
+					fill: var(--color_text);
+					width: 8px;
+					height: 8px;
+				}
+			}
+		}
+
+		// 边的样式
+		.react-flow__edge {
+			.react-flow__edge-path {
+				stroke-linecap: round;
+				transition: none; // 去掉过渡动画
+			}
+
+			// 选中状态
+			&.selected .react-flow__edge-path {
+				stroke-width: 2px;
+			}
+		}
+	}
+}
+
+.toolbar {
+	padding: 2px;
+	background: var(--color_bg);
+	border: 1px solid var(--color_border);
+	border-radius: 5px;
+	box-shadow: var(--shadow);
+}
+
+.modeSwitch {
+	display: flex;
+	gap: 0;
+	background: var(--color_bg);
+	border-radius: 3px;
+	padding: 2px;
+	position: relative;
+}
+
+.modeBtn {
+	flex: 1;
+	padding: 3px 10px;
+	background: transparent;
+	color: var(--color_text_grey);
+	border: none;
+	border-radius: 3px;
+	font-size: 11px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	white-space: nowrap;
+	position: relative;
+	z-index: 1;
+
+	&:hover {
+		color: var(--color_text);
+	}
+
+	&.active {
+		background: var(--color_bg_menu);
+		color: var(--color_text);
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+		font-weight: 600;
+	}
+
+	// Dark mode
+	[data-theme='dark'] &.active {
+		background: var(--color_bg_light);
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+	}
+}
+
+// Modal Styles and other existing styles preserved...
+.modalHeader {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 14px;
+	color: var(--color_text);
+}
+
+.memoryModalContent {
+	max-height: 60vh;
+	overflow-y: auto;
+	padding: 16px;
+
+	.memoryItem {
+		padding: 12px;
+		margin-bottom: 12px;
+		border-radius: var(--radius);
+		background: var(--color_bg);
+		border: 1px solid var(--color_border);
+
+		&:last-child {
+			margin-bottom: 0;
+		}
+
+		.memoryItemHeader {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin-bottom: 8px;
+
+			.memoryItemTitle {
+				font-size: 13px;
+				font-weight: 500;
+				color: var(--color_text);
+			}
+
+			.memoryItemTime {
+				font-size: 11px;
+				color: var(--color_text_grey);
+				font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+			}
+		}
+
+		.memoryItemContent {
+			font-size: 12px;
+			color: var(--color_text);
+			line-height: 1.5;
+			white-space: pre-wrap;
+			word-break: break-word;
+		}
+	}
+}
+
+.nodeModalContent {
+	max-height: 70vh;
+	overflow-y: auto;
+	padding: 16px;
+
+	.nodeDetailSection {
+		margin-bottom: 16px;
+
+		&:last-child {
+			margin-bottom: 0;
+		}
+
+		.sectionTitle {
+			font-size: 13px;
+			font-weight: 500;
+			color: var(--color_text);
+			margin-bottom: 8px;
+			padding-bottom: 6px;
+			border-bottom: 1px solid var(--color_border);
+		}
+
+		.sectionContent {
+			.detailRow {
+				display: flex;
+				align-items: flex-start;
+				gap: 12px;
+				margin-bottom: 8px;
+				font-size: 12px;
+
+				&:last-child {
+					margin-bottom: 0;
+				}
+
+				.detailLabel {
+					flex-shrink: 0;
+					min-width: 80px;
+					color: var(--color_text_grey);
+					font-weight: 500;
+				}
+
+				.detailValue {
+					flex: 1;
+					color: var(--color_text);
+					word-break: break-word;
+				}
+			}
+
+			.codeBlock {
+				margin: 0;
+				padding: 12px;
+				border-radius: var(--radius);
+				background: var(--color_bg);
+				border: 1px solid var(--color_border);
+				font-size: 11px;
+				font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+				color: var(--color_text);
+				overflow-x: auto;
+				line-height: 1.5;
+			}
+
+			.logLine {
+				font-size: 11px;
+				font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+				color: var(--color_text);
+				padding: 4px 0;
+				line-height: 1.5;
+			}
+		}
+	}
+}
+
+// Animations
+@keyframes spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+@keyframes pulse {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.3;
+	}
+}
+
+.spinning {
+	animation: spin 1s linear infinite;
+}

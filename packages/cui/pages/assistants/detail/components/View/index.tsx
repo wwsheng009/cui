@@ -1,9 +1,10 @@
-import { Tabs, Spin } from 'antd'
+import { Tabs } from 'antd'
 import { getLocale } from '@umijs/max'
 import { App } from '@/types'
-import Tag from '@/neo/components/AIChat/Tag'
+import Tag from '../../../components/Tag'
 import Icon from '@/widgets/Icon'
 import styles from './index.less'
+import { useLLMProviders } from '@/hooks/useLLMProviders'
 
 interface Message {
 	role: 'system' | 'user' | 'assistant' | 'developer'
@@ -12,12 +13,13 @@ interface Message {
 
 interface ViewProps {
 	data: App.Assistant
-	connectors: any
+	connectors?: any // Deprecated: kept for backward compatibility
 }
 
 const View = ({ data, connectors }: ViewProps) => {
 	const locale = getLocale()
 	const is_cn = locale === 'zh-CN'
+	const { mapping: connectorMapping } = useLLMProviders()
 
 	const getRoleLabel = (role: string) => {
 		switch (role) {
@@ -67,7 +69,7 @@ const View = ({ data, connectors }: ViewProps) => {
 				<div className={styles.fieldItem}>
 					<div className={styles.fieldLabel}>{is_cn ? 'AI 连接器' : 'AI Connector'}</div>
 					<div className={styles.fieldValue}>
-						{data.connector ? connectors.mapping[data.connector] || data.connector : '-'}
+						{data.connector ? connectorMapping[data.connector] || data.connector : '-'}
 					</div>
 				</div>
 
@@ -136,7 +138,10 @@ const View = ({ data, connectors }: ViewProps) => {
 										<div className={styles.promptsList}>
 											{data.placeholder.prompts.map(
 												(prompt: string, idx: number) => (
-													<div key={idx} className={styles.promptChip}>
+													<div
+														key={idx}
+														className={styles.promptChip}
+													>
 														{prompt}
 													</div>
 												)
@@ -169,12 +174,16 @@ const View = ({ data, connectors }: ViewProps) => {
 												{getRoleLabel(message.role)}
 											</span>
 										</div>
-										<div className={styles.messageContent}>{message.content}</div>
+										<div className={styles.messageContent}>
+											{message.content}
+										</div>
 									</div>
 								))}
 							</div>
 						) : (
-							<span className={styles.emptyValue}>{is_cn ? '暂无消息' : 'No messages'}</span>
+							<span className={styles.emptyValue}>
+								{is_cn ? '暂无消息' : 'No messages'}
+							</span>
 						)}
 					</div>
 				</div>
@@ -189,12 +198,16 @@ const View = ({ data, connectors }: ViewProps) => {
 									{Object.entries(optionsData).map(([key, value]) => (
 										<div key={key} className={styles.optionItem}>
 											<span className={styles.optionKey}>{key}:</span>
-											<span className={styles.optionValue}>{String(value)}</span>
+											<span className={styles.optionValue}>
+												{String(value)}
+											</span>
 										</div>
 									))}
 								</div>
 							) : (
-								<span className={styles.emptyValue}>{is_cn ? '暂无选项' : 'No options'}</span>
+								<span className={styles.emptyValue}>
+									{is_cn ? '暂无选项' : 'No options'}
+								</span>
 							)
 						})()}
 					</div>
@@ -224,4 +237,3 @@ const View = ({ data, connectors }: ViewProps) => {
 }
 
 export default View
-

@@ -48,8 +48,11 @@
 	--color_border_light: rgba(0, 0, 0, 0.06);
 	--color_border_soft: rgba(0, 0, 0, 0.03);
 	--color_dot: rgba(0, 0, 0, 0.12);
+	--color_scrollbar_thumb: rgba(0, 0, 0, 0.15); // Added scrollbar thumb color
 
 	--shadow: 0 0 30px rgba(0, 0, 0, 0.081);
+	--shadow_float: 0 4px 20px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.05);
+	--shadow_float_hover: 0 8px 28px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.05);
 
 	--radius: 6px;
 
@@ -76,6 +79,25 @@
 	--color_neo_border_field: #e9ecef;
 	--color_neo_bg_field_hover: #e9ecef;
 	--color_neo_border_field_hover: #dee2e6;
+
+	// Chatbox design system colors
+	--color_chatbox_bg_content: #ffffff; // Pure white background
+	--color_chatbox_bg_card: #ffffff;
+	--color_chatbox_border_card: #e9ecef;
+	--color_chatbox_border_hover: #d0d7de;
+	--color_chatbox_bg_header: #fafbfc;
+	--color_chatbox_border_header: #f1f3f4;
+	--color_chatbox_bg_selected: #f8f9ff;
+	--color_chatbox_border_selected: #e1e8ff;
+	--color_chatbox_text_primary: #212529;
+	--color_chatbox_text_secondary: #6c757d;
+	--color_chatbox_text_tertiary: #495057;
+	--color_chatbox_icon_muted: #adb5bd;
+	--color_chatbox_bg_field: #f7f8fa; // Very light cool grey, clean look
+	--color_chatbox_border_field: #e9ecef;
+	--color_chatbox_bg_field_hover: #e9ecef;
+	--color_chatbox_border_field_hover: #dee2e6;
+	--color_chatbox_border_focus: #d0d7de; // Use previous hover color for focus
 }
 
 [data-theme='dark'] {
@@ -123,8 +145,11 @@
 	--color_border_light: rgba(255, 255, 255, 0.06);
 	--color_border_soft: rgba(255, 255, 255, 0.03);
 	--color_dot: rgba(255, 255, 255, 0.12);
+	--color_scrollbar_thumb: rgba(255, 255, 255, 0.15); // Light thumb for dark background
 
 	--shadow: 0 0 30px rgba(255, 255, 255, 0.06);
+	--shadow_float: 0 4px 20px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.2);
+	--shadow_float_hover: 0 8px 28px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
 
 	// Neo design system colors (dark theme)
 	--color_neo_bg_content: #1a1b1e;
@@ -143,4 +168,23 @@
 	--color_neo_border_field: #373a40;
 	--color_neo_bg_field_hover: #373a40;
 	--color_neo_border_field_hover: #495057;
+
+	// Chatbox design system colors (dark theme)
+	--color_chatbox_bg_content: #181818; // Comfortable dark background
+	--color_chatbox_bg_card: #242424; // Input area
+	--color_chatbox_border_card: #333333;
+	--color_chatbox_border_hover: #404040;
+	--color_chatbox_bg_header: #242424;
+	--color_chatbox_border_header: #333333;
+	--color_chatbox_bg_selected: #303030;
+	--color_chatbox_border_selected: #4c82f7;
+	--color_chatbox_text_primary: #e0e0e0; // Softer white
+	--color_chatbox_text_secondary: #a0a0a0;
+	--color_chatbox_text_tertiary: #808080;
+	--color_chatbox_icon_muted: #666666;
+	--color_chatbox_bg_field: #303030; // User bubbles
+	--color_chatbox_border_field: #333333;
+	--color_chatbox_bg_field_hover: #3a3a3a;
+	--color_chatbox_border_field_hover: #404040;
+	--color_chatbox_border_focus: #404040; // Use previous hover color for focus
 }

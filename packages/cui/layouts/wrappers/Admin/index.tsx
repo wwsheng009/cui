@@ -8,8 +8,6 @@ import Loading from '../../components/Loading'
 import Container from '../../components/Container'
 import Nav from '../../components/Nav'
 import Menu from '../../components/Menu'
-import Neo from '../../../neo'
-import NeoSidebar from '../../../neo/components/Sidebar'
 import ContainerColumnOne from '../../components/ColumnOne/Container'
 import MenuColumnOne from '../../components/ColumnOne/Menu'
 
@@ -63,7 +61,7 @@ const AdminWrapper: FC<PropsWithChildren> = ({ children }) => {
 		menu_layout: layout,
 		show_name: show_name,
 		hide_nav: global.hide_nav,
-		sidebar_content: !is_chat && <NeoSidebar {...props_neo}></NeoSidebar>,
+		// sidebar_content: !is_chat && <NeoSidebar {...props_neo}></NeoSidebar>,
 		sidebar_visible: !is_chat && props_neo.dock === 'right',
 		sidebar_hidden: is_chat
 	}
@@ -105,8 +103,6 @@ const AdminWrapper: FC<PropsWithChildren> = ({ children }) => {
 					</div>
 				</Then>
 			</If>
-
-			<Neo {...props_neo}></Neo>
 		</Fragment>
 	)
 }

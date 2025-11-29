@@ -3,7 +3,7 @@ import { useParams, history, getLocale } from '@umijs/max'
 import { Spin, Form, message, Tabs, Tooltip, Breadcrumb } from 'antd'
 import { Button } from '@/components/ui'
 import { App } from '@/types'
-import Tag from '@/neo/components/AIChat/Tag'
+import Tag from '../components/Tag'
 import Icon from '@/widgets/Icon'
 import UserAvatar from '@/widgets/UserAvatar'
 import View from './components/View'
@@ -234,6 +234,7 @@ const AssistantDetail = () => {
 				option: Object.fromEntries(options.map(({ key, value }) => [key, value])) || {}
 			}
 
+			// @ts-ignore
 			const response = await apiClient.assistants.Save(assistantData)
 
 			if (window.$app.openapi.IsError(response)) {
@@ -256,18 +257,8 @@ const AssistantDetail = () => {
 	const handleChatClick = (e: React.MouseEvent) => {
 		e.stopPropagation()
 
-		const options: App.NewChatOptions = {
-			assistant: {
-				assistant_id: id,
-				assistant_name: name || '',
-				assistant_avatar: avatarUrl,
-				assistant_deleteable: id !== default_assistant.assistant_id
-			},
-			placeholder: assistantData?.placeholder || undefined
-		}
-
-		// Trigger the new chat event
-		window.$app.Event.emit('app/neoNewChat', options)
+		// Trigger the new chat event with assistant ID
+		window.$app.Event.emit('chat/newWithAssistant', id)
 	}
 
 	if (loading || !assistantData) {
