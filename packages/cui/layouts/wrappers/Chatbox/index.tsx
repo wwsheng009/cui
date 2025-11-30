@@ -1,6 +1,6 @@
 import { Button } from 'antd'
 import { observer } from 'mobx-react-lite'
-import { FC, PropsWithChildren, useState, useCallback, useEffect } from 'react'
+import { FC, PropsWithChildren, useState, useCallback, useEffect, useRef } from 'react'
 import { container } from 'tsyringe'
 import { GlobalModel } from '@/context/app'
 import { LeftOutlined, RightOutlined } from '@ant-design/icons'
@@ -85,9 +85,15 @@ const ChatboxWrapper: FC<PropsWithChildren> = ({ children }) => {
 					global.setSidebarVisible(visible)
 				}
 			} else if (visible && forceNormal) {
-				// 强制以正常模式显示，使用默认宽度
-				const defaultWidth = getResponsiveWidths().default
-				global.updateSidebarState(visible, false, defaultWidth)
+				// 强制退出最大化模式，但保留用户调整的宽度
+				if (isMaximized) {
+					// 如果当前是最大化，则恢复到之前的宽度
+					const restoreWidth = previousWidth || getResponsiveWidths().default
+					global.updateSidebarState(visible, false, restoreWidth)
+				} else {
+					// 如果当前不是最大化，只设置可见性，保持当前宽度
+					global.setSidebarVisible(visible)
+				}
 			} else {
 				// 默认行为：只设置可见性，保持当前最大化状态
 				global.setSidebarVisible(visible)
@@ -98,6 +104,7 @@ const ChatboxWrapper: FC<PropsWithChildren> = ({ children }) => {
 	const [temporaryLink, setTemporaryLink] = useState<string>()
 	const [isTemporaryView, setIsTemporaryView] = useState(false)
 	const [currentPageName, setCurrentPageName] = useState<string>()
+	const isFirstTemporaryViewRef = useRef(true) // Track if this is the first temporary view
 
 	const navigate = useNavigate()
 
@@ -126,9 +133,11 @@ const ChatboxWrapper: FC<PropsWithChildren> = ({ children }) => {
 
 		const handleOpenSidebar = (detail: any) => {
 			if (detail) {
-				// Open Page
+				// Open Page (normal navigation with history)
 				if (detail.path) {
 					navigate(detail.path)
+					// Reset temporary view tracking when navigating to normal page
+					isFirstTemporaryViewRef.current = true
 				}
 
 				// Open Temporary Link
@@ -136,7 +145,15 @@ const ChatboxWrapper: FC<PropsWithChildren> = ({ children }) => {
 					if (detail.title) setCurrentPageName(detail.title || detail.url)
 					setTemporaryLink(detail.url)
 					setIsTemporaryView(true)
-					navigate(detail.url)
+					
+					// First temporary view: push to history (preserve previous page)
+					// Subsequent temporary views: replace current (don't stack temporary pages)
+					if (isFirstTemporaryViewRef.current) {
+						navigate(detail.url)
+						isFirstTemporaryViewRef.current = false
+					} else {
+						navigate(detail.url, { replace: true })
+					}
 				}
 
 				// Support forceNormal parameter to exit maximized mode
@@ -222,6 +239,8 @@ const ChatboxWrapper: FC<PropsWithChildren> = ({ children }) => {
 		setTemporaryLink(undefined)
 		setIsTemporaryView(false)
 		setCurrentPageName(undefined)
+		// Reset temporary view tracking for next time
+		isFirstTemporaryViewRef.current = true
 	}
 
 	const handleToggleMaximize = (e: React.MouseEvent) => {
