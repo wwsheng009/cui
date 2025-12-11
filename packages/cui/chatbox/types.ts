@@ -131,14 +131,16 @@ export interface IHeaderProps {
 	onTabChange?: (id: string) => void
 	/** 关闭 Tab 回调 */
 	onTabClose?: (id: string) => void
+	/** 关闭其他 Tab 回调 */
+	onCloseOthers?: () => void
+	/** 关闭全部 Tab 回调 */
+	onCloseAll?: () => void
 	/** 新建会话回调 */
 	onNewChat?: () => void
 	/** 历史记录是否打开 */
 	historyOpen?: boolean
 	/** 历史记录回调 */
 	onHistoryClick?: () => void
-	/** 设置/更多回调 */
-	onSettingsClick?: () => void
 	className?: string
 }
 
@@ -150,6 +152,8 @@ export interface IHistoryProps {
 	open: boolean
 	/** 当前激活的 tab ID */
 	activeTabId?: string
+	/** 是否使用 overlay 模式（空间不足时覆盖在内容上层） */
+	overlay?: boolean
 	/** 选择会话回调 */
 	onSelect: (chatId: string) => void
 	/** 删除会话回调（同时关闭对应 tab） */

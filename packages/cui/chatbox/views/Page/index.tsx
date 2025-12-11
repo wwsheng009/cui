@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import styles from './index.less'
 import type { IChatProps } from '../../types'
 import { useChatContext } from '../../context'
@@ -26,9 +26,36 @@ const Page = (props: IPageProps) => {
 	const { title, headerMode = 'tabs' } = props
 
 	const global = useGlobal()
+	const containerRef = useRef<HTMLDivElement>(null)
 
 	// History sidebar state
 	const [historyOpen, setHistoryOpen] = useState(false)
+	const [overlayMode, setOverlayMode] = useState(false)
+
+	// Minimum width for push-pull mode (History width 280 + min chat width 400)
+	const MIN_CONTAINER_WIDTH = 680
+
+	// Monitor container width to determine overlay mode
+	useEffect(() => {
+		if (!containerRef.current) return
+
+		const checkWidth = () => {
+			if (containerRef.current) {
+				const width = containerRef.current.offsetWidth
+				setOverlayMode(width < MIN_CONTAINER_WIDTH)
+			}
+		}
+
+		// Initial check
+		checkWidth()
+
+		const observer = new ResizeObserver(() => {
+			checkWidth()
+		})
+
+		observer.observe(containerRef.current)
+		return () => observer.disconnect()
+	}, [])
 
 	// Page 只需要关注 Header 相关的状态和方法
 	const chatContext = useChatContext()
@@ -45,13 +72,32 @@ const Page = (props: IPageProps) => {
 		setHistoryOpen((prev) => !prev)
 	}, [])
 
+	// Close other tabs (keep only the active one)
+	const closeOtherTabs = useCallback(() => {
+		tabs.forEach((tab) => {
+			if (tab.chatId !== activeTabId) {
+				closeTab(tab.chatId)
+			}
+		})
+	}, [tabs, activeTabId, closeTab])
+
+	// Close all tabs
+	const closeAllTabs = useCallback(() => {
+		tabs.forEach((tab) => {
+			closeTab(tab.chatId)
+		})
+	}, [tabs, closeTab])
+
 	// Handle history item selection
-	// 不自动关闭菜单，让用户自己决定何时关闭
+	// overlay 模式下自动关闭，push-pull 模式下保持打开
 	const handleHistorySelect = useCallback(
 		(chatId: string) => {
 			loadHistory(chatId)
+			if (overlayMode) {
+				setHistoryOpen(false)
+			}
 		},
-		[loadHistory]
+		[loadHistory, overlayMode]
 	)
 
 	// 显示 Header 的条件：
@@ -91,9 +137,10 @@ const Page = (props: IPageProps) => {
 	}, [createNewChat, global])
 
 	return (
-		<div className={styles.container}>
-			{/* History Sidebar - 左侧推拉式历史记录 */}
+		<div ref={containerRef} className={styles.container}>
+			{/* History Sidebar - 推拉式或覆盖式历史记录 */}
 			<History
+				overlay={overlayMode}
 				open={historyOpen}
 				activeTabId={activeTabId}
 				onSelect={handleHistorySelect}
@@ -113,12 +160,10 @@ const Page = (props: IPageProps) => {
 						activeTabId={activeTabId}
 						onTabChange={activateTab}
 						onTabClose={closeTab}
+						onCloseOthers={closeOtherTabs}
+						onCloseAll={closeAllTabs}
 						historyOpen={historyOpen}
 						onHistoryClick={toggleHistory}
-						onSettingsClick={() => {
-							// TODO: Show settings dropdown
-							console.log('Settings clicked')
-						}}
 					/>
 				)}
 

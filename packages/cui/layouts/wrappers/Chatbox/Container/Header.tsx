@@ -3,12 +3,12 @@ import { FC, useState, useEffect, useRef } from 'react'
 import { observer } from 'mobx-react-lite'
 import { useGlobal } from '@/context/app'
 import Icon from '@/widgets/Icon'
-import UserAvatar from '@/widgets/UserAvatar'
 import clsx from 'clsx'
 import './header.less'
 import { App } from '@/types'
 import { getLocale, useLocation, useNavigate } from '@umijs/max'
 import { findNavPath } from './Utils'
+import logo_svg from '@/assets/images/logo.svg'
 
 interface HeaderProps {
 	openSidebar: (temporaryLink?: string, title?: string) => void
@@ -17,6 +17,8 @@ interface HeaderProps {
 	currentPageName?: string
 	temporaryLink?: string
 	onBackToNormal?: () => void
+	/** Hide chatbox-related UI (brand logo, sidebar controls) */
+	noChatbox?: boolean
 }
 
 const Header: FC<HeaderProps> = ({
@@ -24,7 +26,8 @@ const Header: FC<HeaderProps> = ({
 	closeSidebar,
 	isTemporaryView = false,
 	currentPageName = '',
-	onBackToNormal
+	onBackToNormal,
+	noChatbox = false
 }) => {
 	const global = useGlobal()
 	const current_path = useLocation().pathname
@@ -39,10 +42,10 @@ const Header: FC<HeaderProps> = ({
 	const measureContainerRef = useRef<HTMLDivElement>(null)
 	const itemWidthsRef = useRef<number[]>([])
 	const quick_items = (global.menus?.quick || []).filter(
-		(item) => item.path != '/chat' && item.path != 'open:sidebar'
+		(item) => item.path != '/welcome' && item.path != 'open:sidebar'
 	)
 	const items = [...(global.menus?.items || []), ...(global.menus?.setting || [])].filter(
-		(item) => item.path != '/chat' && item.path != 'open:sidebar'
+		(item) => item.path != '/welcome' && item.path != 'open:sidebar'
 	)
 
 	const nav_path = findNavPath(current_path, items)
@@ -80,17 +83,17 @@ const Header: FC<HeaderProps> = ({
 			// Calculate available width
 			const headerWidth = header.getBoundingClientRect().width
 			const headerRightWidth = headerRight.getBoundingClientRect().width
-			const userAvatar = header.querySelector('.header_user_avatar') as HTMLElement
+			const brandElement = header.querySelector('.header_brand') as HTMLElement
 			const createNew = header.querySelector('.header_current_function') as HTMLElement
 
-			if (!userAvatar || !createNew) return
+			if (!brandElement || !createNew) return
 
 			// Add some buffer for padding and spacing
 			const BUFFER_SPACE = 80
-			const userAvatarWidth = userAvatar.getBoundingClientRect().width
+			const brandWidth = brandElement.getBoundingClientRect().width
 			const createNewWidth = createNew.getBoundingClientRect().width
 
-			const usedWidth = headerRightWidth + userAvatarWidth + createNewWidth + BUFFER_SPACE
+			const usedWidth = headerRightWidth + brandWidth + createNewWidth + BUFFER_SPACE
 
 			const availableWidth = headerWidth - usedWidth
 			const moreMenuWidth = 48
@@ -181,18 +184,19 @@ const Header: FC<HeaderProps> = ({
 		const activeFunction = quick_items.find((item) => item.path === current_path)
 
 		return (
-			<div className='header_normal'>
+			<div className={clsx('header_normal', noChatbox && 'no-chatbox')}>
 				<div className='header_left'>
-					{/* User Avatar */}
-					<div className='header_user_avatar'>
-						<UserAvatar
-							size={32}
-							showCard={true}
-							cardPlacement='bottom'
-							cardAlign='start'
-							onClick={() => navigate('/settings/profile')}
-						/>
-					</div>
+					{/* Brand Logo - hidden in no-chatbox mode */}
+					{!noChatbox && (
+						<div className='header_brand'>
+							<img
+								className='header_brand_logo'
+								src={global.app_info?.logo || logo_svg}
+								alt='logo'
+							/>
+							<span className='header_brand_name'>{global.app_info?.name || 'Yao'}</span>
+						</div>
+					)}
 
 					{/* Common Functions */}
 					<Dropdown
@@ -334,53 +338,56 @@ const Header: FC<HeaderProps> = ({
 					</div>
 				</div>
 
-				<div className='header_right'>
-					<Tooltip title={is_cn ? '活动监视器' : 'Activity Monitor'}>
-						<Button
-							type='text'
-							className='header_icon_btn header_task_btn'
-							onClick={() => navigate('/jobs')}
-						>
-							<div className='header_task_content'>
-								<span className='header_task_text'>
-									{is_cn ? '活动监视器' : 'Activity Monitor'}
-								</span>
-								<span
-									className={`header_task_number ${
-										global.runningJobsCount > 0 ? 'has-jobs' : ''
-									}`}
-								>
-									{global.runningJobsCount}
-								</span>
-							</div>
-						</Button>
-					</Tooltip>
+				{/* Sidebar controls - hidden in no-chatbox mode */}
+				{!noChatbox && (
+					<div className='header_right'>
+						<Tooltip title={is_cn ? '活动监视器' : 'Activity Monitor'}>
+							<Button
+								type='text'
+								className='header_icon_btn header_task_btn'
+								onClick={() => navigate('/jobs')}
+							>
+								<div className='header_task_content'>
+									<span className='header_task_text'>
+										{is_cn ? '活动监视器' : 'Activity Monitor'}
+									</span>
+									<span
+										className={`header_task_number ${
+											global.runningJobsCount > 0 ? 'has-jobs' : ''
+										}`}
+									>
+										{global.runningJobsCount}
+									</span>
+								</div>
+							</Button>
+						</Tooltip>
 
-					<Tooltip title={is_cn ? 'AI 智能体' : 'AI Assistants'}>
+						<Tooltip title={is_cn ? 'AI 智能体' : 'AI Assistants'}>
+							<Button
+								type='text'
+								className='header_icon_btn'
+								icon={<Icon name='material-assistant' size={14} />}
+								onClick={() => navigate('/assistants')}
+							/>
+						</Tooltip>
+
+						<Tooltip title={is_cn ? '知识库' : 'Knowledge Base'}>
+							<Button
+								type='text'
+								className='header_icon_btn'
+								icon={<Icon name='material-library_books' size={14} />}
+								onClick={() => navigate('/kb')}
+							/>
+						</Tooltip>
+
 						<Button
 							type='text'
 							className='header_icon_btn'
-							icon={<Icon name='material-assistant' size={14} />}
-							onClick={() => navigate('/assistants')}
+							icon={<Icon name='material-close' size={16} />}
+							onClick={closeSidebar}
 						/>
-					</Tooltip>
-
-					<Tooltip title={is_cn ? '知识库' : 'Knowledge Base'}>
-						<Button
-							type='text'
-							className='header_icon_btn'
-							icon={<Icon name='material-library_books' size={14} />}
-							onClick={() => navigate('/kb')}
-						/>
-					</Tooltip>
-
-					<Button
-						type='text'
-						className='header_icon_btn'
-						icon={<Icon name='material-close' size={16} />}
-						onClick={closeSidebar}
-					/>
-				</div>
+					</div>
+				)}
 			</div>
 		)
 	}
