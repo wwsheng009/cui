@@ -91,7 +91,8 @@ const convertStoredToDisplay = (stored: ChatMessage, assistants?: Record<string,
 		delta: false, // Historical messages are complete
 		metadata: {
 			timestamp: new Date(stored.created_at).getTime(),
-			sequence: stored.sequence
+			sequence: stored.sequence,
+			request_id: stored.request_id // Include request_id for reference support
 		},
 		// Add assistant info at message root level (same as streaming messages)
 		...(assistantInfo && {
@@ -295,10 +296,11 @@ export function useTabs({ state, actions, refs, defaultAssistantId }: UseTabsOpt
 				])
 
 				// Convert stored messages to display format with assistant info
+				// Filter out 'loading' type messages as they are transient states
 				// Then deduplicate consecutive assistant info
-				const convertedMessages = messagesRes.messages.map((msg: ChatMessage) =>
-					convertStoredToDisplay(msg, messagesRes.assistants)
-				)
+				const convertedMessages = messagesRes.messages
+					.filter((msg: ChatMessage) => msg.type !== 'loading')
+					.map((msg: ChatMessage) => convertStoredToDisplay(msg, messagesRes.assistants))
 				const displayMessages = deduplicateAssistantInfo(convertedMessages)
 				setChatStates((prev) => ({ ...prev, [chatId]: displayMessages }))
 
