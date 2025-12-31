@@ -2,15 +2,16 @@
  * Navigate Action
  * Open a route in the application sidebar or new window.
  *
- * Page Types:
+ * Route Types:
  * - $dashboard/ : CUI Dashboard pages (direct route navigation, no prefix needed)
  * - /           : SUI pages (loaded via /web/ iframe wrapper)
  * - http(s)://  : External URLs (loaded via iframe in sidebar)
  */
 
 export interface NavigatePayload {
-	pathname: string
+	route: string
 	title?: string
+	icon?: string
 	query?: Record<string, string>
 	target?: '_self' | '_blank'
 }
@@ -50,18 +51,34 @@ const resolvePath = (pathname: string): { url: string; type: 'dashboard' | 'sui'
 }
 
 /**
+ * Get default icon based on route type
+ */
+const getDefaultIcon = (type: 'dashboard' | 'sui' | 'external'): string => {
+	switch (type) {
+		case 'dashboard':
+			return 'material-dashboard'
+		case 'sui':
+			return 'material-web'
+		case 'external':
+			return 'material-open_in_new'
+		default:
+			return 'material-article'
+	}
+}
+
+/**
  * Execute navigate action
  */
 export const navigate = (payload: NavigatePayload): void => {
-	if (!payload?.pathname) {
-		console.warn('[Action:navigate] Missing pathname in payload')
+	if (!payload?.route) {
+		console.warn('[Action:navigate] Missing route in payload')
 		return
 	}
 
-	const { pathname, title, query, target = '_self' } = payload
+	const { route, title, icon, query, target = '_self' } = payload
 
 	// Resolve path based on type
-	const { url: resolvedUrl, type } = resolvePath(pathname)
+	const { url: resolvedUrl, type } = resolvePath(route)
 
 	// Build full URL with query params
 	const fullUrl = buildUrl(resolvedUrl, query)
@@ -78,17 +95,22 @@ export const navigate = (payload: NavigatePayload): void => {
 		return
 	}
 
+	// Get icon (use provided or default based on type)
+	const finalIcon = icon || getDefaultIcon(type)
+
 	// Open in sidebar
 	if (title) {
 		// Temporary view with title (url mode)
 		window.$app?.Event?.emit('app/openSidebar', {
 			url: fullUrl,
-			title
+			title,
+			icon: finalIcon
 		})
 	} else {
 		// Menu navigation with system menu (path mode)
 		window.$app?.Event?.emit('app/openSidebar', {
-			path: fullUrl
+			path: fullUrl,
+			icon: finalIcon
 		})
 	}
 }

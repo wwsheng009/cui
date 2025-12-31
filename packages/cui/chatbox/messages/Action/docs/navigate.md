@@ -10,14 +10,25 @@ Open a route in the application sidebar or new window.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `pathname` | `string` | ✅ | Target path or URL |
+| `route` | `string` | ✅ | Target route or URL |
 | `title` | `string` | - | Page title (for temporary view mode) |
+| `icon` | `string` | - | Tab icon name (e.g., `material-folder`, `material-settings`). If not provided, defaults based on route type |
 | `query` | `Record<string, string>` | - | Query parameters |
 | `target` | `'_self'` \| `'_blank'` | - | Open target: `_self` (sidebar, default), `_blank` (new window) |
 
-## Page Types
+### Default Icons
 
-The `pathname` determines the page type and how it will be loaded:
+If `icon` is not provided, a default icon is used based on the route type:
+
+| Route Type | Default Icon |
+|------------|--------------|
+| CUI (`$dashboard/`) | `material-dashboard` |
+| SUI (`/`) | `material-web` |
+| External (`http(s)://`) | `material-open_in_new` |
+
+## Route Types
+
+The `route` determines the page type and how it will be loaded:
 
 | Prefix | Type | Loading Method | Description |
 |--------|------|----------------|-------------|
@@ -46,8 +57,9 @@ When `title` is provided, the page opens as a temporary view:
 {
   name: 'navigate',
   payload: {
-    pathname: '/trace/abc123',
-    title: 'Trace Details'
+    route: '/trace/abc123',
+    title: 'Trace Details',
+    icon: 'material-timeline'
   }
 }
 ```
@@ -63,7 +75,7 @@ When `title` is not provided, the page opens with system menu:
 {
   name: 'navigate',
   payload: {
-    pathname: '$dashboard/users'
+    route: '$dashboard/users'
   }
 }
 ```
@@ -76,7 +88,7 @@ Opens in a new browser window/tab.
 {
   name: 'navigate',
   payload: {
-    pathname: 'https://docs.example.com',
+    route: 'https://docs.example.com',
     target: '_blank'
   }
 }
@@ -91,7 +103,7 @@ Opens in a new browser window/tab.
 {
   name: 'navigate',
   payload: {
-    pathname: '$dashboard/users'
+    route: '$dashboard/users'
   }
 }
 
@@ -99,8 +111,9 @@ Opens in a new browser window/tab.
 {
   name: 'navigate',
   payload: {
-    pathname: '$dashboard/users/123',
-    title: 'User Details'
+    route: '$dashboard/users/123',
+    title: 'User Details',
+    icon: 'material-person'
   }
 }
 
@@ -108,7 +121,7 @@ Opens in a new browser window/tab.
 {
   name: 'navigate',
   payload: {
-    pathname: '$dashboard/users',
+    route: '$dashboard/users',
     target: '_blank'
   }
 }
@@ -121,8 +134,9 @@ Opens in a new browser window/tab.
 {
   name: 'navigate',
   payload: {
-    pathname: '/custom/pages/report',
-    title: 'Sales Report'
+    route: '/custom/pages/report',
+    title: 'Sales Report',
+    icon: 'material-bar_chart'
   }
 }
 
@@ -130,7 +144,7 @@ Opens in a new browser window/tab.
 {
   name: 'navigate',
   payload: {
-    pathname: '/custom/pages/profile'
+    route: '/custom/pages/profile'
   }
 }
 ```
@@ -142,7 +156,7 @@ Opens in a new browser window/tab.
 {
   name: 'navigate',
   payload: {
-    pathname: 'https://docs.example.com/api',
+    route: 'https://docs.example.com/api',
     title: 'API Documentation'
   }
 }
@@ -151,7 +165,7 @@ Opens in a new browser window/tab.
 {
   name: 'navigate',
   payload: {
-    pathname: 'https://docs.example.com/api',
+    route: 'https://docs.example.com/api',
     target: '_blank'
   }
 }
@@ -163,7 +177,7 @@ Opens in a new browser window/tab.
 {
   name: 'navigate',
   payload: {
-    pathname: '$dashboard/orders',
+    route: '$dashboard/orders',
     query: {
       status: 'pending',
       page: '1'
