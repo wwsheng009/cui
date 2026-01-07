@@ -13,6 +13,7 @@ import { User } from '@/openapi/user'
 import { EntryConfig, SigninProvider, EntryVerificationStatus, LoginStatus } from '@/openapi/user/types'
 import { AfterLogin } from '../auth'
 import { getDefaultLogoUrl } from '@/services/wellknown'
+import { local, session } from '@yaoapp/storex'
 
 // Note: This is the unified auth entry point
 // Backend will determine if user is logging in or registering based on email existence
@@ -428,6 +429,13 @@ const AuthEntry = () => {
 						entry: loginRedirect,
 						logout_redirect: logoutRedirect
 					})
+					if (loginResult.data?.access_token) {
+						if (global.app_info.token?.storage === 'localStorage') {
+							local.token = loginResult.data?.access_token
+						} else {
+							session.token = loginResult.data?.access_token
+						}
+					}
 
 					message.success(currentLocale === 'zh-CN' ? '登录成功！' : 'Login successful!')
 
