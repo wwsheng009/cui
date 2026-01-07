@@ -7,12 +7,16 @@ import { history } from '@umijs/max'
 import { local } from '@yaoapp/storex'
 
 axios.interceptors.request.use((config) => {
+	const token = getToken()
+	const headers = { ...config['headers'] }
+
+	if (token) {
+		headers.authorization = token
+	}
+
 	return {
 		...config,
-		headers: {
-			...config['headers'],
-			authorization: getToken()
-		}
+		headers
 	}
 })
 
