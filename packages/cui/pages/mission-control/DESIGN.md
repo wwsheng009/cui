@@ -1,0 +1,1980 @@
+# Mission Control - Design Document
+
+## 1. Overview
+
+Mission Control is the management interface for Autonomous Robot Agents. It provides a game-like, futuristic UI for monitoring and controlling AI team members.
+
+**Key Characteristics:**
+
+- Futuristic, sci-fi visual style (inspired by space command centers)
+- Full-screen capable (designed for large display walls)
+- Real-time status monitoring with prominent clock display
+- Human intervention capabilities
+- Support for concurrent executions per agent (up to 100 stations per team)
+
+**Design System:** Neo Design System colors from `@cui/styles/preset/vars.less`
+
+**Theme:** Follow system preference (light/dark)
+
+---
+
+## 2. Core Concepts
+
+### 2.1 Station
+
+Each Robot Agent is represented as a "Station" (workstation). A team can have up to 100 stations.
+
+**Station States:**
+
+| State | Color | Animation | Description |
+|-------|-------|-----------|-------------|
+| Working | `--color_success` (#00c853) | Pulse glow | Actively executing tasks |
+| Idle | `--color_warning` (#faad14) | None | Ready, waiting for trigger |
+| Paused | `--color_neo_icon_muted` | None | Manually paused |
+| Error | `--color_danger` (#e62965) | Fast blink | Execution failed |
+| Maintenance | `--color_info` | Rotate | Under configuration |
+
+### 2.2 Execution
+
+A single run of an Agent (P0 → P1 → P2 → P3 → P4 → P5 phases).
+
+- One Agent can have **multiple concurrent executions**
+- Station card shows concurrent count as number (e.g., "×2", "×3")
+- Each execution shows: trigger type, current phase, task progress, ETA
+- Executions can be paused, resumed, or stopped
+
+### 2.3 Phases
+
+| Phase | Name | Description |
+|-------|------|-------------|
+| P0 | Inspiration | Analyze context, generate insights (Clock trigger only) |
+| P1 | Goals | Generate prioritized goals |
+| P2 | Tasks | Split goals into executable tasks |
+| P3 | Run | Execute tasks with validation |
+| P4 | Delivery | Format and deliver results |
+| P5 | Learning | Extract insights for future (async) |
+
+---
+
+## 3. Page Layout
+
+```
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  HEADER (Top Bar)                                                           ┃
+┃  ┌─────────────────────────────────────────────────────────────────────────┐┃
+┃  │ ◉ MISSION CONTROL          Working: 3  Idle: 5  Error: 1             ⛶ │┃
+┃  └─────────────────────────────────────────────────────────────────────────┘┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃                                                                             ┃
+┃                         CLOCK (Center, Prominent)                           ┃
+┃                                                                             ┃
+┃                            14:32:45                                         ┃
+┃                         2026-01-19 SUN                                      ┃
+┃                                                                             ┃
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+┃  STATIONS GRID                                                              ┃
+┃                                                                             ┃
+┃     ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐            ┃
+┃     │ 🟢 ×2   │ │ 🟡      │ │ 🟢 ×1   │ │ ⚫      │ │ 🔴      │  ...       ┃
+┃     │ Sales   │ │ Content │ │ Research│ │ Monitor │ │  Data   │            ┃
+┃     │ Manager │ │ Writer  │ │ Analyst │ │  Bot    │ │ Analyst │            ┃
+┃     │ ████░░  │ │  IDLE   │ │ ███░░░  │ │ PAUSED  │ │  ERROR  │            ┃
+┃     └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘            ┃
+┃                                                                             ┃
+┃     ┌─────────┐ ┌─────────┐ ┌─────────┐                                    ┃
+┃     │ 🟡      │ │ 🟢 ×3   │ │   ➕    │                                    ┃
+┃     │ Report  │ │ Customer│ │   Add   │                                    ┃
+┃     │ Writer  │ │ Service │ │  Agent  │                                    ┃
+┃     │  IDLE   │ │ ██████░ │ │         │                                    ┃
+┃     └─────────┘ └─────────┘ └─────────┘                                    ┃
+┃                                                                             ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+```
+
+### 3.1 Header (Top Bar)
+
+| Element | Position | Description |
+|---------|----------|-------------|
+| Logo | Left | "MISSION CONTROL" title with subtle glow |
+| Stats | Center-Right | Quick counts: Working (3), Idle (5), Error (1) |
+| Fullscreen | Right | Toggle fullscreen mode button (⛶) |
+
+### 3.2 Clock (Center, Prominent)
+
+The clock is a **central visual element**, positioned between header and grid.
+
+```
+         14:32:45
+      2026-01-19 SUN
+```
+
+**Design:**
+- Large monospace font (e.g., 48-72px for time)
+- Subtle glow effect matching primary color
+- Updates every second
+- Shows: Time (HH:MM:SS), Date (YYYY-MM-DD), Day of week
+
+**Fullscreen Mode:**
+- Clock becomes even larger
+- Positioned prominently above the grid
+
+### 3.3 Stations Grid
+
+- Responsive grid layout
+- Cards arranged in rows, wrapping as needed
+- "Add Agent" card always at the end
+- Cards have subtle hover effects
+- Working cards have pulse animation on border
+
+---
+
+## 4. Components
+
+### 4.1 Station Card
+
+The primary unit representing one Robot Agent.
+
+```
+┌─────────────────────────────┐
+│  ● ×2                       │  <- Status indicator + concurrent count
+│                             │
+│       👤                    │  <- Avatar/Icon
+│                             │
+│    Sales Manager            │  <- Agent name
+│    Sales Analyst            │  <- Role (subtitle)
+│                             │
+│  ████████░░░░  60%          │  <- Overall progress (if working)
+│  or "IDLE" / "PAUSED"       │  <- Status text (if not working)
+│                             │
+│  Next: 09:00 tomorrow       │  <- Next scheduled run (if idle)
+└─────────────────────────────┘
+```
+
+**Concurrent Executions Display:**
+- Show as number badge: `×2`, `×3`, etc.
+- If only 1 execution, show just the status dot without number
+- Progress bar shows combined/average progress of all executions
+
+**Interactions:**
+- Hover: Elevate with shadow, show border glow
+- Click: Open Agent Modal
+
+**Visual States:**
+
+```less
+// Working state
+.station-card.working {
+  border-color: var(--color_success);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+// Error state  
+.station-card.error {
+  border-color: var(--color_danger);
+  animation: blink 0.8s ease-in-out infinite;
+}
+
+// Idle state
+.station-card.idle {
+  border-color: var(--color_warning);
+}
+
+// Paused state
+.station-card.paused {
+  border-color: var(--color_neo_icon_muted);
+  opacity: 0.7;
+}
+```
+
+### 4.2 Agent Modal
+
+Opens when clicking a station card. Centered modal with backdrop.
+
+**Header Layout:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🤖 SALES MANAGER                                                           │
+│  Sales Analyst · Clock: 09:00, 14:00, 17:00 daily   [📤 Assign Task]  [×]  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  [Active (2)]  [History]  [Results]  [Config]                               │
+```
+
+| Element | Position | Description |
+|---------|----------|-------------|
+| Avatar | Left | Creature icon (small, no glow) |
+| Name | Left | Agent name |
+| Role | Below name | Role and schedule info |
+| **Assign Task** | Right | Button to open Assign Task Drawer |
+| Close | Far right | Close modal button |
+
+**Tabs:**
+
+```
+[Active (2)]  [History]  [Results]  [Config]
+```
+
+| Tab | Content |
+|-----|---------|
+| **Active** | Currently running executions, can intervene/pause/stop |
+| **History** | Past execution records with full details |
+| **Results** | Work outputs and generated files |
+| **Config** | Agent configuration (identity, triggers, resources) |
+
+#### 4.2.1 Active Tab
+
+**Design Principles:**
+- Simplified card view - focus on "what's happening now"
+- Visual status indicators instead of text labels
+- Complex operations (Intervene, Phase details) moved to Detail Drawer
+- "Current task" is more important than "3/5 tasks"
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🤖 SALES MANAGER                                                           │
+│  Sales Analyst · Clock: 09:00, 14:00, 17:00 daily      [🚀]  [×]           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  [Active (2)]  [History]  [Results]  [Config]                               │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│                                                                             │
+│  ┌─ running (green pulse border) ────────────────────────────────────────┐ │
+│  │  Weekly Sales Report                                                   │ │
+│  │  ● Analyzing sales trends...                        ████████░░░░ 3/5  │ │
+│  │                                                                        │ │
+│  │  🕐 Clock · 8m 32s                               [⏸] [⏹]  [→]       │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+│  ┌─ running (green pulse border) ────────────────────────────────────────┐ │
+│  │  Competitor Analysis                                                   │ │
+│  │  ● Fetching competitor data...                      ████░░░░░░░░ 1/4  │ │
+│  │                                                                        │ │
+│  │  👤 Human · 2m 15s                               [⏸] [⏹]  [→]       │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Execution Card Layout:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  {Execution Name}                                                        │  <- Title row
+│  ● {Current task description}...              {progress bar} {n/m}      │  <- Status row
+│                                                                          │
+│  {trigger icon} {trigger type} · {elapsed time}     [⏸] [⏹]  [→]      │  <- Footer row
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+| Element | Description |
+|---------|-------------|
+| **Name** | Execution name (from Goals or Human input) |
+| **Current task** | What the agent is doing RIGHT NOW (most important info) |
+| **Progress** | Visual bar + "3/5" compact format |
+| **Trigger icon** | 🕐 Clock, 👤 Human, ⚡ Event |
+| **Elapsed time** | How long it's been running |
+| **[⏸]** | Pause button (icon only) |
+| **[⏹]** | Stop button (icon only) |
+| **[→]** | Open Detail Drawer |
+
+**Visual Status Indicators:**
+
+| Status | Border | Icon | Animation |
+|--------|--------|------|-----------|
+| **Running** | Green | ● (filled) | Pulse glow |
+| **Paused** | Yellow | ⏸ | None |
+| **Error** | Red | ⚠ | Flash |
+| **Waiting** | Blue | ○ | Subtle pulse |
+
+**Empty State:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                            ○                                                │
+│                                                                             │
+│                    No active executions                                     │
+│                                                                             │
+│          Agent is idle. Waiting for next trigger or task.                  │
+│                                                                             │
+│                      [ 🚀 Assign Task ]                                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+#### 4.2.2 History Tab
+
+**Design:** Reuses `ExecutionCard` component from Active Tab with additional status display.
+
+**Features:**
+- Scroll-based infinite loading (like `/assistants` and `/kb` pages)
+- Custom scrollbar (show on hover, themed)
+- Filter by status (All / Completed / Failed)
+- Search by keyword
+- Grid layout matching Active Tab
+
+```
+┌─ History Tab ────────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  🔍 [Search executions...]          [All ▼] [Last 7 days ▼]                 │
+│                                                                              │
+│  ┌─────────────────────────────────┐ ┌─────────────────────────────────┐    │
+│  │ ✓ Weekly Sales Report            │ │ ✗ Competitor Analysis            │    │
+│  │ 分析销售数据完成                  │ │ Connection timeout               │    │
+│  │ ████████████████████ 5/5        │ │ ████████░░░░░░░░░░░░ 2/4        │    │
+│  │ 🕐 Clock · 12m 34s · 1/19 09:00 │ │ 👤 Manual · Failed · 1/19 14:30 │    │
+│  └─────────────────────────────────┘ └─────────────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────────────────────────┐ ┌─────────────────────────────────┐    │
+│  │ ✓ Daily Report                   │ │ ✓ Customer Follow-up            │    │
+│  │ 日报生成完成                      │ │ 已发送3封跟进邮件               │    │
+│  │ ████████████████████ 4/4        │ │ ████████████████████ 2/2        │    │
+│  │ 🕐 Clock · 8m 20s · 1/18 18:00  │ │ ⚡ Event · 2m 15s · 1/18 15:30  │    │
+│  └─────────────────────────────────┘ └─────────────────────────────────┘    │
+│                                                                              │
+│  ┌─────────────────────────────────┐                                        │
+│  │ ...                              │  <- Scroll to load more              │
+│  └─────────────────────────────────┘                                        │
+│                                                                              │
+│  ─────────────────────────────────────────────────────────────────────────  │
+│  Loaded 6 of 24 executions                                                   │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Infinite Scroll Implementation:**
+
+```typescript
+// Reference: pages/assistants/index.tsx, pages/kb/index.tsx
+
+const containerRef = useRef<HTMLDivElement>(null)
+const [hasMore, setHasMore] = useState(true)
+const [loadingMore, setLoadingMore] = useState(false)
+
+useEffect(() => {
+  const container = containerRef.current
+  if (!container) return
+
+  const handleScroll = () => {
+    const { scrollTop, scrollHeight, clientHeight } = container
+    // Load more when user is 50px from bottom
+    if (scrollHeight - scrollTop - clientHeight < 50 && !loadingMore && hasMore) {
+      loadMoreData()
+    }
+  }
+
+  container.addEventListener('scroll', handleScroll)
+  return () => container.removeEventListener('scroll', handleScroll)
+}, [loadingMore, hasMore, data])
+```
+
+**Custom Scrollbar Style:**
+
+```less
+// Reference: pages/kb/document/Layout/index.less
+
+.historyContent {
+  overflow-y: auto;
+  
+  &::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--color_border);
+    border-radius: 4px;
+    border: 2px solid var(--color_mission_modal_content_bg);
+
+    &:hover {
+      background: var(--color_text_grey);
+    }
+  }
+
+  &::-webkit-scrollbar-track {
+    background: var(--color_mission_modal_content_bg);
+    border-radius: 4px;
+  }
+}
+```
+
+#### 4.2.3 Results Tab
+
+**Deliverables Hub** - where users consume Agent outputs. Focus on content consumption, not process tracking.
+
+**Design Principles:**
+- **User Mindset**: "I want to find/get my results" (consumer, not investigator)
+- **Core Content**: Summary + Body (Markdown) + Attachments (files)
+- **Separation from Execution Detail**: Execution Detail is for tracing process; Results Tab is for consuming outputs
+- **Two-Level Structure**: List (table) → Detail (modal)
+
+---
+
+##### Results List (Table Layout)
+
+High information density for quick scanning and finding. Users can see all deliverables at a glance.
+
+```
+┌─ Results Tab ───────────────────────────────────────────────────────────────┐
+│                                                                              │
+│  🔍 Search...                              [Trigger ▾] [Time ▾]              │
+│                                                                              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  Title                         │ Trigger  │ Time           │ Files │ Action │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│  Morning Sales Report           │ ⏰ Clock │ 01-20 09:15   │  2    │  [⬇]  │  ← click row → modal
+│  Process Lead: John Smith       │ 📨 Event │ 01-20 10:35   │  1    │  [⬇]  │
+│  Weekly Competitor Analysis     │ ⏰ Clock │ 01-19 17:00   │  3    │  [⬇]  │
+│  Urgent: Customer Complaint     │ 👤 Human │ 01-19 14:22   │  1    │  [⬇]  │
+│  Daily Data Summary             │ ⏰ Clock │ 01-19 09:00   │  0    │   -   │  ← no files, no download
+│  New Product Launch Notice      │ ⚡ Event │ 01-18 16:45   │  2    │  [⬇]  │
+│  ...                                                                         │
+│                                                                              │
+│  [Load More...]                                                              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Table Columns:**
+
+| Column | Description |
+|--------|-------------|
+| Title | Delivery title (from execution goal or human input) |
+| Trigger | Trigger type icon + label (⏰ Clock / 👤 Human / ⚡ Event) |
+| Time | Delivery time (MM-DD HH:mm format) |
+| Files | Attachment count (number badge) |
+| Action | Download button [⬇] if has attachments; otherwise empty |
+
+**Interactions:**
+- **Click row** → Open Result Detail Modal
+- **Click [⬇]** → Download attachments (single file: direct download; multiple: zip or dropdown menu)
+- **Hover row** → Highlight effect
+
+**Features:**
+- Search input (filters by title)
+- Trigger type filter dropdown (All / Clock / Human / Event)
+- Time filter dropdown (Last 7 days / Last 30 days / All)
+- Infinite scroll loading (same pattern as History Tab)
+- Empty state with helpful message
+
+---
+
+##### Result Detail Modal
+
+Immersive reading experience for content consumption. Opens when clicking any row in the table.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                         [×] │
+│  Morning Sales Report                                                       │
+│  ⏰ Clock Trigger · 2026-01-20 09:15                                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ 📋 Summary                                                           │   │
+│  │                                                                      │   │
+│  │ Sales grew 50% this week with 15 new leads, 3 high-priority          │   │
+│  │ opportunities identified. Competitor launched new product -          │   │
+│  │ recommend monitoring market response.                                │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ 📝 Report                                                            │   │
+│  │                                                                      │   │
+│  │ ## Sales Data                                                        │   │
+│  │                                                                      │   │
+│  │ - New leads: 15 (+50%)                                               │   │
+│  │ - Closed deals: 8                                                    │   │
+│  │ - Total amount: $128,000                                             │   │
+│  │                                                                      │   │
+│  │ ## Key Accounts                                                      │   │
+│  │                                                                      │   │
+│  │ | Account     | Status    | Est. Value |                            │   │
+│  │ |-------------|-----------|------------|                            │   │
+│  │ | ABC Corp    | Following | $50,000    |                            │   │
+│  │ | XYZ Group   | Quoted    | $80,000    |                            │   │
+│  │                                                                      │   │
+│  │ ## Competitor Updates                                                │   │
+│  │                                                                      │   │
+│  │ Competitor A released a new version this week...                     │   │
+│  │                                                                      │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ 📎 Attachments (2)                                                   │   │
+│  │                                                                      │   │
+│  │  ┌─────────────────────┐  ┌─────────────────────┐                   │   │
+│  │  │ 📄 Sales_Report.pdf │  │ 📊 Analysis.xlsx    │                   │   │
+│  │  │    1.2 MB           │  │    856 KB           │                   │   │
+│  │  │ [Preview] [Download]│  │ [Preview] [Download]│                   │   │
+│  │  └─────────────────────┘  └─────────────────────┘                   │   │
+│  │                                                                      │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Modal Sections:**
+
+| Section | Content |
+|---------|---------|
+| Header | Title + Trigger type + Time + Close button |
+| Summary | 1-2 sentence summary from DeliveryContent.summary |
+| Report | Full Markdown content from DeliveryContent.body, rendered |
+| Attachments | File cards with preview/download buttons |
+
+**Attachment Card:**
+
+```
+┌─────────────────────────┐
+│ 📄 filename.pdf         │  ← File type icon + name
+│    1.2 MB               │  ← File size
+│ [Preview] [Download]    │  ← Action buttons
+└─────────────────────────┘
+```
+
+**File Type Icons:**
+
+| Type | Icon | Extensions |
+|------|------|------------|
+| PDF | 📄 | .pdf |
+| Excel | 📊 | .xlsx, .xls, .csv |
+| Image | 🖼️ | .png, .jpg, .svg |
+| Word | 📝 | .docx, .doc |
+| Text | 📃 | .txt, .md |
+| JSON | 📋 | .json |
+| Archive | 📦 | .zip |
+
+**Preview Behavior:**
+
+| File Type | Preview Action |
+|-----------|----------------|
+| PDF | Embedded PDF viewer or new tab |
+| Image | Lightbox preview in modal |
+| Excel/CSV | Simple table preview (first 100 rows) |
+| Text/MD | Rendered in modal |
+| Other | Direct download (no preview) |
+
+---
+
+##### Data Source
+
+Results Tab displays `DeliveryContent` from completed executions:
+
+```typescript
+// From robot/DESIGN.md
+interface DeliveryContent {
+  summary: string;      // Brief 1-2 sentence summary
+  body: string;         // Full markdown report
+  attachments: DeliveryAttachment[];
+}
+
+interface DeliveryAttachment {
+  title: string;        // Human-readable title
+  description?: string; // What this artifact is
+  task_id?: string;     // Which task produced this
+  file: string;         // Wrapper: __<uploader>://<fileID>
+}
+```
+
+**Mapping to UI:**
+
+| API Field | UI Element |
+|-----------|------------|
+| execution.goal | Table: Title |
+| execution.trigger_type | Table: Trigger |
+| execution.end_time | Table: Time |
+| delivery.attachments.length | Table: Files count |
+| delivery.summary | Modal: Summary section |
+| delivery.body | Modal: Report section (Markdown rendered) |
+| delivery.attachments | Modal: Attachments section |
+
+#### 4.2.4 Config Tab
+
+Agent configuration editing. Organized by user mental model (not by system structure).
+
+**Design Principles:**
+- **Follow user's mental flow** rather than system data structure
+- **Progressive disclosure**: Basic settings first, advanced settings hidden
+- **Contextual visibility**: Show/hide sections based on dependencies
+- **Left Menu + Right Panel** layout for easy navigation
+- **i18n Support**: All labels support internationalization (en/zh)
+
+---
+
+##### Layout Structure
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│  Config                                                           [Save] │
+├────────────────┬─────────────────────────────────────────────────────────┤
+│                │                                                         │
+│  ● Basic       │   (Right Panel Content)                                 │
+│                │                                                         │
+│    Identity    │                                                         │
+│                │                                                         │
+│    Schedule    │  ← Only visible when autonomous_mode = true             │
+│                │                                                         │
+│  ─────────     │                                                         │
+│                │                                                         │
+│    Advanced    │                                                         │
+│                │                                                         │
+└────────────────┴─────────────────────────────────────────────────────────┘
+```
+
+**Menu Sections:**
+
+| Section | User Question | Visibility |
+|---------|---------------|------------|
+| **Basic** | "Who is this?" | Always |
+| **Identity** | "What does it do? What resources?" | Always |
+| **Schedule** | "When to work? How to notify?" | Only when `autonomous_mode = true` |
+| **Advanced** | "Rarely changed settings" | Always |
+
+---
+
+##### Panel 1: Basic — "Who is this?"
+
+**Fields from `__yao.member` table:**
+
+| UI Label (en) | UI Label (zh) | DB Column | Type | Required | Notes |
+|---------------|---------------|-----------|------|----------|-------|
+| Name | 名称 | `display_name` | string(200) | Yes | |
+| Email | 工作邮箱 | `robot_email` | string(255) | Yes | Globally unique, format: `prefix@domain` |
+| Role | 角色 | `role_id` | string(50) | Yes | Select from `__yao.role` |
+| Description | 简介 | `bio` | text | No | Brief description |
+| Reports To | 汇报给 | `manager_id` | string(255) | No | Select from team members |
+| Work Mode | 工作模式 | `autonomous_mode` | boolean | Yes | Default: false |
+
+**Layout:**
+
+```
+Basic
+───────────────────────────────────────────────────────
+
+Name *
+[Sales Data Analyst]
+
+Email *
+[sales-analyst] @ [company.com ▾]
+
+Role *
+[Data Analyst ▾]
+
+Description
+[Handles daily sales data analysis and reporting]
+
+Reports To
+[Select... ▾]
+
+───────────────────────────────────────────────────────
+
+Work Mode
+
+◉ On Demand — Works when you assign tasks
+○ Scheduled — Runs automatically on a schedule
+```
+
+**Key Behavior:**
+- When `autonomous_mode` switches to `true`, "Schedule" menu item appears
+- When `autonomous_mode` switches to `false`, "Schedule" menu item disappears
+
+---
+
+##### Panel 2: Identity — "What does it do?"
+
+**Fields from `__yao.member` table:**
+
+| UI Label (en) | UI Label (zh) | DB Column | Type | Required | Notes |
+|---------------|---------------|-----------|------|----------|-------|
+| Role & Responsibilities | 职责说明 | `system_prompt` | text | Yes | With AI generate button |
+| AI Model | AI 模型 | `language_model` | string(100) | No | e.g., "gpt-4", "claude-3-opus" |
+| Monthly Budget | 月度预算 | `cost_limit` | decimal(10,2) | No | USD per month |
+| Accessible AI Assistants | 可协作的智能体 | `agents` | json | No | Other AI agents it can work with |
+| Accessible Tools | 可使用的工具 | `mcp_servers` | json | No | Tools it can use |
+
+**Fields from `robot_config.kb`:**
+
+| UI Label (en) | UI Label (zh) | JSON Path | Type | Notes |
+|---------------|---------------|-----------|------|-------|
+| Accessible Knowledge | 可查阅的知识库 | `kb.collections` | string[] | Knowledge base collection IDs |
+
+**Fields from `robot_config.db`:**
+
+| UI Label (en) | UI Label (zh) | JSON Path | Type | Notes |
+|---------------|---------------|-----------|------|-------|
+| Accessible Data | 可访问的数据 | `db.models` | string[] | Database model names |
+
+**Layout:**
+
+```
+Identity
+───────────────────────────────────────────────────────
+
+Role & Responsibilities *                     [✨ Generate]
+(Describe what this teammate does and how it should work)
+┌─────────────────────────────────────────────────────┐
+│ You are a Sales Data Analyst.                        │
+│                                                      │
+│ Your responsibilities:                               │
+│ - Analyze daily sales data and identify trends       │
+│ - Generate weekly sales reports                      │
+│ - Alert the team when metrics drop significantly     │
+└─────────────────────────────────────────────────────┘
+
+───────────────────────────────────────────────────────
+
+Resources
+
+AI Model                      Monthly Budget (USD)
+[GPT-4 Turbo ▾]              [$100        ]
+
+Accessible AI Assistants
+[✓] Report Writer  [✓] Chart Generator  [□] Email Sender
+
+Accessible Tools
+[✓] Database Query  [✓] Web Search  [□] File Manager
+
+Accessible Knowledge
+[✓] Sales KB  [✓] Product Docs  [□] Company Policies
+
+Accessible Data
+[✓] Sales  [✓] Customers  [□] Orders
+```
+
+---
+
+##### Panel 3: Schedule — "When to work?"
+
+**Only visible when `autonomous_mode = true`**
+
+**Fields from `robot_config.clock`:**
+
+| UI Label (en) | UI Label (zh) | JSON Path | Type | Notes |
+|---------------|---------------|-----------|------|-------|
+| (radio options) | (单选项) | `clock.mode` | enum | "times" \| "interval" \| "daemon" |
+| At | 时间 | `clock.times` | string[] | For mode="times": ["09:00", "14:00"] |
+| On | 日期 | `clock.days` | string[] | For mode="times": ["Mon", "Tue"] or ["*"] |
+| Every | 间隔 | `clock.every` | string | For mode="interval": "30m", "1h" |
+| Timezone | 时区 | `clock.tz` | string | e.g., "Asia/Shanghai" |
+
+**Layout:**
+
+```
+Schedule
+───────────────────────────────────────────────────────
+
+When to run?
+
+◉ At Specific Times
+  At [09:00] [14:00] [+ Add]
+  On [Mon][Tue][Wed][Thu][Fri][✓Sat][✓Sun]
+
+○ At Regular Intervals
+  Every [30] [minutes ▾]
+
+○ Continuous
+  Runs non-stop until manually stopped
+
+Timezone [Asia/Shanghai ▾]
+```
+
+**Note:** Results are sent to the manager (Reports To) by default. Additional delivery options (extra recipients, webhook, process) are in Advanced panel.
+
+---
+
+##### Panel 4: Advanced — "Rarely changed settings"
+
+**Fields from `robot_config.delivery`:**
+
+| UI Label (en) | UI Label (zh) | JSON Path | Type | Default | Notes |
+|---------------|---------------|-----------|------|---------|-------|
+| Additional Recipients | 额外收件人 | `delivery.email.targets` | EmailTarget[] | [] | Extra email recipients beyond manager |
+| Webhook | Webhook | `delivery.webhook.enabled` | boolean | false | |
+| Webhook URL | Webhook 地址 | `delivery.webhook.targets` | WebhookTarget[] | [] | `{ url }` |
+| Process | 调用流程 | `delivery.process.enabled` | boolean | false | |
+| Process Name | 流程名称 | `delivery.process.targets` | ProcessTarget[] | [] | `{ process }` |
+
+**Fields from `robot_config.resources.phases`:**
+
+| UI Label (en) | UI Label (zh) | JSON Path | Type | Default | Notes |
+|---------------|---------------|-----------|------|---------|-------|
+| Inspiration Agent | 灵感分析智能体 | `resources.phases.inspiration` | string | `__yao.inspiration` | P0: Analyze context |
+| Goals Agent | 目标规划智能体 | `resources.phases.goals` | string | `__yao.goals` | P1: Generate goals |
+| Tasks Agent | 任务拆解智能体 | `resources.phases.tasks` | string | `__yao.tasks` | P2: Split into tasks |
+| Run Agent | 执行智能体 | `resources.phases.run` | string | `__yao.run` | P3: Execute tasks |
+| Delivery Agent | 交付智能体 | `resources.phases.delivery` | string | `__yao.delivery` | P4: Format & deliver |
+| Learning Agent | 学习智能体 | `resources.phases.learning` | string | `__yao.learning` | P5: Extract insights |
+
+**Fields from `robot_config.quota`:**
+
+| UI Label (en) | UI Label (zh) | JSON Path | Type | Default | Notes |
+|---------------|---------------|-----------|------|---------|-------|
+| Max concurrent | 最大并发 | `quota.max` | int | 2 | Max concurrent executions |
+| Max queue | 最大队列 | `quota.queue` | int | 10 | Max queued tasks |
+| Priority | 优先级 | `quota.priority` | int | 5 | 1-10, higher = more priority |
+
+**Fields from `robot_config.executor`:**
+
+| UI Label (en) | UI Label (zh) | JSON Path | Type | Default | Notes |
+|---------------|---------------|-----------|------|---------|-------|
+| (checkbox) | (复选框) | `executor.mode` | enum | "standard" | "standard" \| "dryrun" |
+| Timeout | 超时 | `executor.max_duration` | string | "30m" | e.g., "30m", "1h" |
+
+**Fields from `robot_config.learn`:**
+
+| UI Label (en) | UI Label (zh) | JSON Path | Type | Default | Notes |
+|---------------|---------------|-----------|------|---------|-------|
+| Learn from experience | 经验学习 | `learn.on` | boolean | false | |
+| Learn | 学习内容 | `learn.types` | string[] | | "execution" \| "feedback" \| "insight" |
+| Keep for | 保留 | `learn.keep` | int | 0 | days, 0 = forever |
+
+**Fields from `robot_config.triggers`:**
+
+| UI Label (en) | UI Label (zh) | JSON Path | Type | Default | Notes |
+|---------------|---------------|-----------|------|---------|-------|
+| Accept ad-hoc tasks | 接受临时任务 | `triggers.intervene.enabled` | boolean | true | |
+| Trigger on events | 事件触发 | `triggers.event.enabled` | boolean | false | |
+
+**Layout:**
+
+```
+Advanced
+───────────────────────────────────────────────────────
+
+Delivery
+(Results are sent to manager by default)
+
+Additional Recipients
+┌─────────────────────────────────────────────┐
+│ team@company.com                       [×] │
+└─────────────────────────────────────────────┘
+[+ Add]
+
+[□] Webhook
+    URL [......................................]
+    
+[□] Process
+    [Select... ▾]
+
+───────────────────────────────────────────────────────
+
+Phase Agents
+(Customize which AI handles each phase, defaults work for most cases)
+
+  Inspiration   [__yao.inspiration ▾]   Analyze context
+  Goals         [__yao.goals ▾]         Generate goals
+  Tasks         [__yao.tasks ▾]         Split into tasks
+  Run           [__yao.run ▾]           Execute tasks
+  Delivery      [__yao.delivery ▾]      Format & deliver
+  Learning      [__yao.learning ▾]      Extract insights
+
+───────────────────────────────────────────────────────
+
+Concurrency
+
+Max concurrent    [2]    tasks
+Max queue         [10]   pending tasks
+Priority          [5]    (1-10)
+Timeout           [30]   minutes per task
+
+───────────────────────────────────────────────────────
+
+Testing
+
+[□] Dry run mode (simulate without executing)
+
+───────────────────────────────────────────────────────
+
+Learning
+
+[✓] Learn from experience
+    Learn: [✓] Execution history  [✓] Feedback  [✓] Insights
+    Keep for [90] days (0 = forever)
+
+───────────────────────────────────────────────────────
+
+Triggers
+
+[✓] Accept ad-hoc tasks
+[□] Trigger on events (webhook / database)
+```
+
+---
+
+##### Complete Data Structure
+
+**`__yao.member` Table Fields (Robot-specific):**
+
+```typescript
+interface MemberRobotFields {
+  // Basic
+  member_id: string           // Global unique ID (readonly)
+  team_id: string             // Team ID (readonly)
+  display_name: string        // Display name
+  bio?: string                // Description
+  avatar?: string             // Avatar URL
+  robot_email: string         // Globally unique email
+  manager_id?: string         // Direct manager member_id
+  
+  // Status
+  status: 'pending' | 'active' | 'inactive' | 'suspended'
+  autonomous_mode: boolean    // Key switch
+  robot_status: 'idle' | 'working' | 'paused' | 'error' | 'maintenance'
+  
+  // Identity & Resources
+  system_prompt?: string      // System prompt
+  language_model?: string     // LLM model name
+  cost_limit?: number         // USD per month
+  agents?: string[]           // Accessible agent IDs
+  mcp_servers?: string[]      // MCP server IDs
+  
+  // Email settings
+  authorized_senders?: string[]     // Whitelist of senders
+  email_filter_rules?: object[]     // Email filter rules
+  
+  // Config
+  robot_config?: RobotConfig  // JSON config (see below)
+}
+```
+
+**`robot_config` JSON Structure (from `types/config.go`):**
+
+```typescript
+interface RobotConfig {
+  // Identity (required)
+  identity: {
+    role: string              // Role description
+    duties?: string[]         // Responsibilities
+    rules?: string[]          // Behavioral rules
+  }
+  
+  // Triggers
+  triggers?: {
+    clock?: { enabled: boolean }
+    intervene?: { enabled: boolean, actions?: string[] }
+    event?: { enabled: boolean }
+  }
+  
+  // Clock schedule
+  clock?: {
+    mode: 'times' | 'interval' | 'daemon'
+    times?: string[]          // ["09:00", "14:00"]
+    days?: string[]           // ["Mon", "Tue"] or ["*"]
+    every?: string            // "30m", "1h"
+    tz?: string               // "Asia/Shanghai"
+    timeout?: string          // "30m"
+  }
+  
+  // Quota
+  quota?: {
+    max?: number              // default: 2
+    queue?: number            // default: 10
+    priority?: number         // default: 5, range: 1-10
+  }
+  
+  // Knowledge & Data
+  kb?: {
+    collections?: string[]    // KB collection IDs
+    options?: object
+  }
+  db?: {
+    models?: string[]         // DB model names
+    options?: object
+  }
+  
+  // Learning
+  learn?: {
+    on: boolean
+    types?: ('execution' | 'feedback' | 'insight')[]
+    keep?: number             // days, 0 = forever
+  }
+  
+  // Resources
+  resources?: {
+    phases?: Record<Phase, string>  // phase -> agent ID
+    agents?: string[]
+    mcp?: { id: string, tools?: string[] }[]
+  }
+  
+  // Delivery
+  delivery?: {
+    email?: {
+      enabled: boolean
+      targets: { to: string[], template?: string, subject?: string }[]
+    }
+    webhook?: {
+      enabled: boolean
+      targets: { url: string, method?: string, headers?: Record<string,string>, secret?: string }[]
+    }
+    process?: {
+      enabled: boolean
+      targets: { process: string, args?: any[] }[]
+    }
+  }
+  
+  // Events
+  events?: {
+    type: 'webhook' | 'database'
+    source: string
+    filter?: object
+  }[]
+  
+  // Executor
+  executor?: {
+    mode?: 'standard' | 'dryrun' | 'sandbox'
+    max_duration?: string     // "30m"
+  }
+}
+```
+
+---
+
+##### Dynamic Menu Logic
+
+```typescript
+const menuItems = useMemo(() => {
+  const items: MenuItem[] = [
+    { key: 'basic', label: t('config.basic'), icon: <UserOutlined /> },
+    { key: 'identity', label: t('config.identity'), icon: <IdcardOutlined /> },
+  ]
+  
+  // Only show "Schedule" when autonomous mode is ON
+  if (formData.autonomous_mode) {
+    items.push({ key: 'schedule', label: t('config.schedule'), icon: <ClockCircleOutlined /> })
+  }
+  
+  items.push({ type: 'divider' })
+  items.push({ key: 'advanced', label: t('config.advanced'), icon: <SettingOutlined /> })
+  
+  return items
+}, [formData.autonomous_mode, t])
+```
+
+---
+
+##### Component Structure
+
+```
+AgentModal/
+├── tabs/
+│   ├── ConfigTab/
+│   │   ├── index.tsx           # Main: left menu + right panel + Save button
+│   │   ├── index.less          # Layout styles (menu, panel container)
+│   │   └── hooks/
+│   │       └── useConfigForm.ts  # Form state, validation, save logic
+│   │
+│   └── ... (other tabs)
+│
+components/
+├── ConfigPanels/               # Shared config panel components
+│   ├── BasicPanel/
+│   │   ├── index.tsx           # Form fields for Basic
+│   │   └── index.less
+│   ├── IdentityPanel/
+│   │   ├── index.tsx           # Form fields for Identity
+│   │   └── index.less
+│   ├── SchedulePanel/
+│   │   ├── index.tsx           # Form fields for Schedule
+│   │   └── index.less
+│   └── AdvancedPanel/
+│       ├── index.tsx           # Form fields for Advanced
+│       └── index.less
+```
+
+**Component Responsibilities:**
+
+| Component | Responsibility |
+|-----------|----------------|
+| `ConfigTab/index.tsx` | Layout (menu + panel), panel switching, Save button, form context provider |
+| `useConfigForm` | Form state (`formData`), `setField()`, `validate()`, `save()`, `loading`, `errors` |
+| `BasicPanel` | Render Basic fields, call `setField()` on change |
+| `IdentityPanel` | Render Identity fields, AI generate button logic |
+| `SchedulePanel` | Render Schedule fields, clock mode switching |
+| `AdvancedPanel` | Render Advanced fields (delivery, quota, learning, triggers) |
+
+**Data Flow:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ConfigTab                                                       │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  useConfigForm (context)                                     ││
+│  │  - formData: { member fields + robot_config }               ││
+│  │  - setField(path, value)                                    ││
+│  │  - errors: { [path]: string }                               ││
+│  │  - save(): Promise<void>                                    ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                              │                                   │
+│         ┌────────────────────┼────────────────────┐             │
+│         ▼                    ▼                    ▼             │
+│  ┌─────────────┐  ┌─────────────────┐  ┌─────────────────┐     │
+│  │ BasicPanel  │  │ IdentityPanel   │  │ SchedulePanel   │ ... │
+│  │             │  │                 │  │                 │     │
+│  │ useContext  │  │ useContext      │  │ useContext      │     │
+│  │ (formData,  │  │ (formData,      │  │ (formData,      │     │
+│  │  setField)  │  │  setField)      │  │  setField)      │     │
+│  └─────────────┘  └─────────────────┘  └─────────────────┘     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**useConfigForm Hook:**
+
+```typescript
+interface ConfigFormState {
+  // Member table fields
+  display_name: string
+  robot_email: string
+  role_id: string
+  bio: string
+  manager_id: string
+  autonomous_mode: boolean
+  system_prompt: string
+  language_model: string
+  cost_limit: number | null
+  agents: string[]
+  mcp_servers: string[]
+  
+  // robot_config JSON
+  robot_config: {
+    identity?: { role?: string; duties?: string[]; rules?: string[] }
+    clock?: { mode: string; times?: string[]; days?: string[]; every?: string; tz?: string }
+    triggers?: { intervene?: { enabled: boolean }; event?: { enabled: boolean } }
+    quota?: { max?: number; queue?: number; priority?: number }
+    kb?: { collections?: string[] }
+    db?: { models?: string[] }
+    learn?: { on?: boolean; types?: string[]; keep?: number }
+    delivery?: { email?: EmailPreference; webhook?: WebhookPreference; process?: ProcessPreference }
+    executor?: { mode?: string; max_duration?: string }
+  }
+}
+
+interface ConfigFormContext {
+  formData: ConfigFormState
+  setField: (path: string, value: any) => void  // e.g., setField('robot_config.clock.mode', 'times')
+  errors: Record<string, string>
+  loading: boolean
+  saving: boolean
+  save: () => Promise<void>
+}
+```
+
+**Panel Props:**
+
+```typescript
+// Each panel receives context via useContext, no props needed
+// But can accept optional props for customization
+
+interface PanelProps {
+  readonly?: boolean  // For view-only mode
+}
+```
+
+### 4.3 Execution Detail Drawer
+
+Right-side drawer showing complete execution details. Opens when clicking `[→]` on ExecutionCard from either Active Tab or History Tab.
+
+**Design Principles:**
+- Different layouts based on execution status (running / completed / failed)
+- **Running**: Focus on Goals + Task progress
+- **Completed**: Focus on Results (Summary + Attachments + Delivery status)
+- **Failed**: Focus on Error message + partial progress
+- Goals and Tasks always available, can be collapsed/expanded
+
+**Width:** `50%` of modal width (or `500px` minimum)
+
+---
+
+#### 4.3.1 Running State
+
+Most important: **Goals** (what it's doing) + **Task progress** (how far along)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  EXECUTION DETAIL                                          [×]  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  📝 晚间内容生成                                                 │
+│  ⏳ 进行中 · 已用时 5m 32s                      [⏸] [⏹]        │
+│                                                                  │
+│  ═══════════════════════════════════════════════════════════════│
+│                                                                  │
+│  📌 目标 / GOALS                                                 │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ 根据最新云计算趋势，撰写一篇面向技术决策者的分析文章，      │ │
+│  │ 重点关注成本优化和安全性。完成后发送至技术博客。            │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  📋 任务 / TASKS (3/5)                                           │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ ✓  1. 关键词研究              text-analyst       32s       │ │
+│  │ ✓  2. 搜索趋势数据            web-search         1m 15s    │ │
+│  │ ●  3. 撰写文章                text-writer        进行中    │ │
+│  │ ○  4. SEO 优化                text-writer        待执行    │ │
+│  │ ○  5. 发布到 CMS              process            待执行    │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ─────────────────────────────────────────────────────────────  │
+│  触发: 🕐 定时 · 开始: 2026-01-19 21:00                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 4.3.2 Completed State
+
+Most important: **Results** (Summary + Attachments + Delivery). Goals/Tasks collapsed by default.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  EXECUTION DETAIL                                          [×]  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  📝 周销售报告生成                                               │
+│  ✓ 已完成 · 用时 12m 34s                                         │
+│                                                                  │
+│  ═══════════════════════════════════════════════════════════════│
+│                                                                  │
+│  📦 结果 / RESULTS                                               │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ 📋 摘要                                                     │ │
+│  │ 处理了 15 条新线索，识别出 3 个高优先级机会。                │ │
+│  │ 转化率比上周提高 5%。                                        │ │
+│  │                                                             │ │
+│  │ 📎 附件                                                     │ │
+│  │ ├ 📄 Sales_Report.pdf                       [下载] [预览]   │ │
+│  │ └ 📊 Regional_Analysis.xlsx                 [下载]          │ │
+│  │                                                             │ │
+│  │ 📬 已发送                                                   │ │
+│  │ ├ ✓ Email: manager@company.com                              │ │
+│  │ └ ✓ Webhook: slack.com/webhook/sales                        │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ▶ 📌 目标                                             [展开]   │
+│  ▶ 📋 任务 (5/5 完成)                                  [展开]   │
+│                                                                  │
+│  ─────────────────────────────────────────────────────────────  │
+│  触发: 🕐 定时 · 2026-01-19 09:00 - 09:12                       │
+│                                                                  │
+│  [重新运行]  [重新发送]                                          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+#### 4.3.3 Failed State
+
+Most important: **Error message** + where it failed. Goals/Tasks expanded to show failure point.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  EXECUTION DETAIL                                          [×]  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  📝 竞品分析任务                                                 │
+│  ✗ 失败 · 用时 3m 45s                                            │
+│                                                                  │
+│  ═══════════════════════════════════════════════════════════════│
+│                                                                  │
+│  ⚠️ 错误 / ERROR                                                 │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ 任务 3 执行失败：无法访问目标网站，连接超时。                │ │
+│  │                                                             │ │
+│  │ 失败位置: web-search · 竞品官网数据抓取                      │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ▼ 📌 目标                                                       │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ 分析主要竞品的最新产品动态和定价策略变化...                  │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ▼ 📋 任务 (2/4 完成)                                            │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │ ✓  1. 确定竞品列表            text-analyst       45s       │ │
+│  │ ✓  2. 搜索新闻报道            web-search         2m 10s    │ │
+│  │ ✗  3. 竞品官网数据抓取        web-search         失败       │ │
+│  │ ○  4. 生成分析报告            text-writer        未执行     │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                                                                  │
+│  ─────────────────────────────────────────────────────────────  │
+│  触发: 👤 手动 · 2026-01-19 14:30                                │
+│                                                                  │
+│  [重试]                                                          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+**Information Priority by Status:**
+
+| Status | Most Important | Secondary | Collapsed |
+|--------|---------------|-----------|-----------|
+| **Running** | Goals + Task Progress | Current task | - |
+| **Completed** | Results (Summary + Attachments + Delivery) | - | Goals, Tasks |
+| **Failed** | Error message | Goals | Tasks (show failure point) |
+
+### 4.4 Assign Task Drawer
+
+Right-side drawer for assigning new tasks to the agent. Opens when clicking **[📤 Assign Task]** button in Agent Modal header.
+
+**Purpose:** Create a new Human-triggered Execution (equivalent to sending an email/message to the agent).
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  🤖 SALES MANAGER                                                           │
+│  Sales Analyst · Clock: ...                         [📤 Assign Task]  [×]  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                     ┌──────────────────────┐│
+│  [Active (2)]  [History]  [Results]  [Config]       │  ASSIGN TASK    [×] ││
+│                                                     ├──────────────────────┤│
+│  ┌────────────────────────────────────────────┐    │                      ││
+│  │ ⏱ Weekly Sales Report     Clock │ P3 Run  │    │  ┌────────────────┐  ││
+│  │   ████████████░░░░░░ 3/5 tasks             │    │  │ 帮我分析一下   │  ││
+│  │   [Intervene] [Pause] [Stop]    [Detail →] │    │  │ 竞品最新动态   │  ││
+│  └────────────────────────────────────────────┘    │  │ ...            │  ││
+│                                                     │  │                │  ││
+│  ┌────────────────────────────────────────────┐    │  └────────────────┘  ││
+│  │ ⏱ Competitor Alert        Human │ P2 Tasks│    │                      ││
+│  │   ██████░░░░░░░░░░░░ 1/4 tasks             │    │  [📎] [🎤]    [Send]││
+│  │   [Intervene] [Pause] [Stop]    [Detail →] │    │                      ││
+│  └────────────────────────────────────────────┘    └──────────────────────┘│
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Drawer Layout:**
+
+```
+┌────────────────────────────────────────┐
+│  ASSIGN TASK                      [×]  │
+│  Sales Manager                         │
+├────────────────────────────────────────┤
+│                                        │
+│  ┌────────────────────────────────┐   │
+│  │                                │   │
+│  │  Input your task here...       │   │  <- Auto-expanding textarea
+│  │                                │   │
+│  │                                │   │
+│  └────────────────────────────────┘   │
+│                                        │
+│  Attachments:                          │
+│  ┌────────┐ ┌────────┐                │
+│  │ 📄 file│ │ 🖼️ img │  [+ Add]       │  <- Optional attachments
+│  └────────┘ └────────┘                │
+│                                        │
+│  ────────────────────────────────────  │
+│                                        │
+│  [📎 File] [🎤 Voice]      [📤 Send]  │  <- Action buttons
+│                                        │
+└────────────────────────────────────────┘
+```
+
+**Features:**
+
+| Feature | Description |
+|---------|-------------|
+| **Text Input** | Free-form task description (supports markdown) |
+| **File Attachment** | Attach files (PDF, Excel, images, etc.) for context |
+| **Voice Input** | Record voice message (transcribed to text) |
+| **Send** | Submit task, creates new Human-triggered Execution |
+
+**Interaction Flow:**
+
+```
+1. User clicks [📤 Assign Task] in Modal header
+   ↓
+2. Drawer slides in from right
+   ↓
+3. User types task: "帮我分析一下竞品最新动态，特别关注价格变化"
+   ↓
+4. (Optional) User attaches files for reference
+   ↓
+5. User clicks [Send]
+   ↓
+6. API call: POST /api/robots/:id/trigger
+   {
+     "type": "human",
+     "input": {
+       "messages": [{ "role": "user", "content": "帮我分析..." }],
+       "attachments": [...]
+     }
+   }
+   ↓
+7. Drawer shows "✓ Task assigned" and closes (or stays open)
+   ↓
+8. Active Tab refreshes, new Execution appears:
+   ┌────────────────────────────────────────────────────────────┐
+   │ ⏱ 竞品动态分析                    Human │ P1 Goals │ ...  │
+   │   ░░░░░░░░░░░░░░░░ 0/? tasks                               │
+   └────────────────────────────────────────────────────────────┘
+```
+
+**vs Email Analogy:**
+
+| Email | Assign Task |
+|-------|-------------|
+| Write email | Type task in Drawer |
+| Attach files | Add attachments |
+| Send | Click Send |
+| Sent folder | Active Tab shows new Execution |
+| Reply received | History + Results show output |
+
+---
+
+### 4.5 Intervention Drawer
+
+Right-side drawer for intervening in an **existing** execution. Opens when clicking **[Intervene]** button on an Execution card.
+
+**Purpose:** Modify an in-progress Execution (add tasks, adjust goals, give instructions).
+
+```
+┌──────────────────────────────────────┐
+│  INTERVENE                      [×]  │
+│  Sales Manager · Execution #1        │
+├──────────────────────────────────────┤
+│                                      │
+│  ACTION TYPE                         │
+│  ○ Add Task                          │
+│  ○ Adjust Goal                       │
+│  ○ Cancel Task                       │
+│  ● Direct Instruction                │
+│                                      │
+│  INSTRUCTION                         │
+│  ┌──────────────────────────────┐   │
+│  │ Also include competitor       │   │
+│  │ pricing comparison in the     │   │
+│  │ report...                     │   │
+│  │                               │   │
+│  └──────────────────────────────┘   │
+│                                      │
+│  PRIORITY                            │
+│  [First] [Next] [Last]               │
+│                                      │
+│  ┌──────────────────────────────┐   │
+│  │         Send Command          │   │
+│  └──────────────────────────────┘   │
+│                                      │
+└──────────────────────────────────────┘
+```
+
+**Action Types:**
+
+| Action | Description |
+|--------|-------------|
+| Add Task | Insert a new task into the execution |
+| Adjust Goal | Modify the current goal |
+| Cancel Task | Cancel a specific task |
+| Direct Instruction | Free-form instruction to agent |
+
+**Assign Task vs Intervene:**
+
+| Aspect | Assign Task | Intervene |
+|--------|-------------|-----------|
+| **Entry** | Modal header button | Execution card button |
+| **Target** | Creates **new** Execution | Modifies **existing** Execution |
+| **Trigger** | Human trigger → P1 | Human intervention → inject into current phase |
+| **Use case** | "这是新任务" | "顺便也看下这个" |
+
+---
+
+### 4.6 Add Agent Modal (Create AI Teammate)
+
+Single-page modal for quickly creating a new agent. Collects only required fields to get the agent running immediately. Advanced settings can be configured later in Settings Tab.
+
+**Design Principles:**
+- **Minimal Required Fields**: Only collect what's necessary to create a working agent
+- **Immediate Usability**: Agent can start working right after creation
+- **Progressive Configuration**: Advanced settings via Settings Tab later
+- **No Multi-Step Wizard**: Single form, all fields visible at once
+
+**Modal Style:**
+```
+- Width: min(720px, 90vw) - responsive
+- Position: top: 10vh (upper area, comfortable for form filling)
+- Max-height: 80vh (scrollable if needed)
+- Style: Consistent with AgentModal (--color_mission_modal_* variables)
+- Backdrop: Same blur/overlay as other modals
+```
+
+**Required Fields:**
+
+| Field | Source | Description |
+|-------|--------|-------------|
+| `display_name` | `__yao.member` | Agent name (e.g., "Sales Analyst") |
+| `robot_email` | `__yao.member` | Unique identifier + domain select |
+| `manager_id` | `__yao.member` | Direct manager (results sent to them) |
+| `system_prompt` | `__yao.member` | Role & responsibilities (with AI Generate button) |
+| `autonomous_mode` | `__yao.member` | Work mode: Autonomous / On Demand |
+| `agents` | `__yao.member` | At least one AI Assistant selected |
+
+**Layout:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Create AI Teammate                                                [×]  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌─ Basic Info ───────────────────────────────────────────────────────┐ │
+│  │                                                                     │ │
+│  │  Name *                              Email *                        │ │
+│  │  [_________________________]         [__________] @ [domain.com ▾]  │ │
+│  │                                                                     │ │
+│  │  Manager *                           Work Mode *                    │ │
+│  │  [Select manager... ▾]               ◉ Autonomous  ○ On Demand      │ │
+│  │                                                                     │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
+│                                                                         │
+│  ┌─ Identity ─────────────────────────────────────────────────────────┐ │
+│  │                                                                     │ │
+│  │  Role & Responsibilities *                                          │ │
+│  │  [_______________________________________________________________]  │ │
+│  │  [_______________________________________________________________]  │ │
+│  │  [_______________________________________________________________]  │ │
+│  │                                              [Generate with AI ✨]  │ │
+│  │                                                                     │ │
+│  │  AI Assistants * (select at least one)                              │ │
+│  │  [✓] Data Analyst     [✓] Report Writer    [ ] Code Assistant       │ │
+│  │  [ ] Research Agent   [ ] Content Writer   [ ] Customer Service     │ │
+│  │                                                                     │ │
+│  └─────────────────────────────────────────────────────────────────────┘ │
+│                                                                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                    [Cancel]   [Create AI Teammate]      │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Form Sections:**
+
+1. **Basic Info** (two-column layout)
+   - Name: Text input, required
+   - Email: Text input + domain dropdown, required, unique validation
+   - Manager: Select dropdown (from Team API), required
+   - Work Mode: Radio group (Autonomous first, On Demand second)
+
+2. **Identity**
+   - Role & Responsibilities: TextArea (3-4 rows) with AI Generate button
+   - AI Assistants: CheckboxGroup, at least one required
+
+**Behaviors:**
+
+- **Validation**: Show errors inline, disable submit until all required fields filled
+- **Email Uniqueness**: Check on blur, show error if already exists
+- **AI Generate**: Same as Settings Tab, generates prompt based on name/role
+- **Submit**: Create agent via API, close modal, refresh station grid
+- **Cancel**: Close modal, discard changes (confirm if dirty)
+
+**Default Values (from system):**
+- `autonomous_mode`: false (On Demand)
+- `language_model`: System default LLM
+- `cost_limit`: Default budget
+- Other settings: System defaults, editable later in Settings Tab
+
+**i18n Labels:**
+
+| Field | English | Chinese |
+|-------|---------|---------|
+| Modal Title | Create AI Teammate | 创建 AI 队友 |
+| Name | Name | 名称 |
+| Email | Email | 邮箱 |
+| Manager | Manager | 直属主管 |
+| Work Mode | Work Mode | 工作模式 |
+| Autonomous | Autonomous | 自主模式 |
+| On Demand | On Demand | 按需模式 |
+| Role & Responsibilities | Role & Responsibilities | 角色与职责 |
+| AI Assistants | AI Assistants | AI 助手 |
+| Cancel | Cancel | 取消 |
+| Create | Create AI Teammate | 创建 AI 队友 |
+
+---
+
+## 5. Visual Design
+
+### 5.1 Color Palette
+
+Using Neo Design System, following system theme preference:
+
+**Light Theme:**
+```less
+--color_neo_bg_content: #f8f9fa;
+--color_neo_bg_card: #ffffff;
+--color_neo_border_card: #e9ecef;
+--color_neo_text_primary: #212529;
+--color_neo_text_secondary: #6c757d;
+```
+
+**Dark Theme:**
+```less
+--color_neo_bg_content: #1a1b1e;
+--color_neo_bg_card: #25262b;
+--color_neo_border_card: #373a40;
+--color_neo_text_primary: #e9ecef;
+--color_neo_text_secondary: #adb5bd;
+```
+
+**Status Colors (both themes):**
+```less
+--color_success: #00c853;  // Working
+--color_warning: #faad14;  // Idle
+--color_danger: #e62965;   // Error
+--color_info: #4580ff;     // Info/Primary
+```
+
+### 5.2 Typography
+
+**Clock (Center):**
+```less
+font-family: 'JetBrains Mono', 'SF Mono', monospace;
+font-size: 48px;  // Time
+font-size: 16px;  // Date
+font-weight: 300;
+letter-spacing: 2px;
+```
+
+**Title (Mission Control):**
+```less
+font-family: 'JetBrains Mono', 'SF Mono', monospace;
+font-size: 16px;
+font-weight: 600;
+letter-spacing: 2px;
+text-transform: uppercase;
+```
+
+**Card Titles:**
+```less
+font-family: system-ui, -apple-system, sans-serif;
+font-size: 14px;
+font-weight: 500;
+```
+
+**Status Text:**
+```less
+font-family: 'JetBrains Mono', monospace;
+font-size: 11px;
+text-transform: uppercase;
+letter-spacing: 1px;
+```
+
+### 5.3 Animations
+
+**Pulse Glow (Working state):**
+```less
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(0, 200, 83, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px 4px rgba(0, 200, 83, 0.2);
+  }
+}
+```
+
+**Blink (Error state):**
+```less
+@keyframes blink {
+  0%, 100% {
+    border-color: var(--color_danger);
+  }
+  50% {
+    border-color: transparent;
+  }
+}
+```
+
+**Progress Bar Animation:**
+```less
+@keyframes progress-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+.progress-bar.active {
+  background: linear-gradient(
+    90deg,
+    var(--color_success) 0%,
+    var(--color_info) 50%,
+    var(--color_success) 100%
+  );
+  background-size: 200% 100%;
+  animation: progress-flow 2s linear infinite;
+}
+```
+
+### 5.4 Subtle Effects
+
+- **Card hover**: Slight elevation + border glow
+- **Status indicator**: Soft glow matching status color
+- **Progress changes**: Smooth transitions (0.3s ease)
+- **Modal open/close**: Fade + scale animation (0.2s ease)
+- **Drawer slide**: Slide from right (0.2s ease-out)
+- **Clock**: Subtle glow effect on time digits
+
+---
+
+## 6. Data Flow
+
+### 6.1 Information Hierarchy
+
+```
+Mission Control (Main Page)
+    │
+    └── Station Card (Workstation)
+            │
+            └── Agent Modal (Click to open)
+                    │
+                    ├── [📤 Assign Task] → Assign Task Drawer
+                    │       └── Create new Human-triggered Execution
+                    │
+                    ├── Active Tab
+                    │       └── Execution Cards (running tasks)
+                    │               ├── [Intervene] → Intervention Drawer
+                    │               └── [Detail →] → Execution Detail Drawer
+                    │
+                    ├── History Tab
+                    │       └── Execution Records (past tasks)
+                    │               └── [View →] → Execution Detail Drawer
+                    │
+                    ├── Results Tab
+                    │       └── Output List (all results)
+                    │               └── Preview / Download
+                    │
+                    └── Config Tab
+                            └── Agent Configuration Form
+```
+
+**Complete Interaction Flow:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           COMPLETE WORKFLOW                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+[User Action]                    [System Response]                [Where to See]
+─────────────────────────────────────────────────────────────────────────────────
+Click Station Card        →   Open Agent Modal              →   Modal opens
+                              (shows current state)
+
+Click [Assign Task]       →   Open Assign Task Drawer       →   Drawer slides in
+
+Type task + Send          →   Create Human Execution        →   API: POST /trigger
+                              (P1 → P2 → P3 → P4 → P5)
+
+Task submitted            →   New Execution appears         →   Active Tab updates
+                              in Active Tab
+
+Monitor progress          →   Watch phase/task progress     →   Active Tab
+                              (auto-refresh every 2min)
+
+Click [Intervene]         →   Open Intervention Drawer      →   Modify execution
+                              (add task, adjust goal)
+
+Execution completes       →   Moves to History              →   History Tab
+                              Results saved                 →   Results Tab
+
+View results              →   Download files, preview       →   Results Tab
+                              Re-run or re-deliver          →   Execution Detail
+```
+
+### 6.2 Data Relationships
+
+```
+Robot Agent (Station)
+    │
+    ├── Status: idle / working / paused / error
+    ├── Config: triggers, clock, identity, resources, delivery
+    │
+    └── Executions[] (Execution Records)
+            │
+            ├── Active Executions (status: running/pending)
+            │       └── Can intervene / pause / stop
+            │
+            └── History Executions (status: completed/failed/cancelled)
+                    │
+                    └── Execution Detail
+                            ├── Trigger Input (who/what triggered)
+                            ├── P0 Inspiration (if clock trigger)
+                            ├── P1 Goals
+                            ├── P2 Tasks[]
+                            ├── P3 Results[] (per task)
+                            ├── P4 Delivery
+                            │       ├── Summary
+                            │       ├── Body (markdown)
+                            │       ├── Attachments[] → Results Tab
+                            │       └── Channel Results[]
+                            └── P5 Learning (if enabled)
+```
+
+---
+
+## 7. File Structure
+
+```
+pages/mission-control/
+├── index.tsx                    # Main page
+├── index.less                   # Page styles
+├── types.ts                     # TypeScript types
+│
+├── components/
+│   ├── Header/
+│   │   ├── index.tsx
+│   │   ├── index.less
+│   │   └── Stats.tsx            # Status counts
+│   │
+│   ├── Clock/
+│   │   ├── index.tsx            # Prominent center clock
+│   │   └── index.less
+│   │
+│   ├── StationsGrid/
+│   │   ├── index.tsx
+│   │   ├── index.less
+│   │   └── StationCard/
+│   │       ├── index.tsx
+│   │       ├── index.less
+│   │       └── StatusIndicator.tsx
+│   │
+│   ├── AgentModal/
+│   │   ├── index.tsx
+│   │   ├── index.less
+│   │   ├── tabs/
+│   │   │   ├── ActiveTab.tsx
+│   │   │   ├── HistoryTab.tsx
+│   │   │   ├── ResultsTab.tsx
+│   │   │   └── ConfigTab.tsx
+│   │   ├── ExecutionCard.tsx
+│   │   └── FileItem.tsx
+│   │
+│   ├── AssignTaskDrawer/        # NEW: Assign new task to agent
+│   │   ├── index.tsx            # Drawer component
+│   │   ├── index.less           # Drawer styles
+│   │   ├── TaskInput.tsx        # Text input with markdown support
+│   │   └── AttachmentList.tsx   # File attachment management
+│   │
+│   ├── ExecutionDrawer/
+│   │   ├── index.tsx
+│   │   ├── index.less
+│   │   ├── PhaseList.tsx
+│   │   └── TaskList.tsx
+│   │
+│   ├── InterventionDrawer/
+│   │   ├── index.tsx
+│   │   └── index.less
+│   │
+│   └── AddAgentWizard/
+│       ├── index.tsx
+│       ├── index.less
+│       └── steps/
+│           ├── Identity.tsx
+│           ├── Trigger.tsx
+│           ├── Resources.tsx
+│           ├── Delivery.tsx
+│           └── Review.tsx
+│
+├── hooks/
+│   ├── useRobots.ts             # Fetch robot list
+│   ├── useRobotStatus.ts        # Real-time status (WebSocket)
+│   ├── useExecutions.ts         # Execution history
+│   ├── useResults.ts            # Result files and outputs
+│   ├── useClock.ts              # Real-time clock
+│   └── useAssignTask.ts         # NEW: Submit task to agent
+│
+└── services/
+    └── api.ts                   # API calls
+```
+
+---
+
+## 8. API Requirements
+
+### 8.1 REST Endpoints
+
+```
+# Robot Management
+GET    /api/robots                    # List all robots
+GET    /api/robots/:id                # Get robot details
+POST   /api/robots                    # Create robot
+PATCH  /api/robots/:id                # Update robot
+DELETE /api/robots/:id                # Delete robot
+
+# Status
+GET    /api/robots/:id/status         # Get runtime status
+
+# Triggers & Control
+POST   /api/robots/:id/trigger        # Manual trigger
+POST   /api/robots/:id/intervene      # Human intervention
+
+# Execution Control
+POST   /api/executions/:id/pause      # Pause execution
+POST   /api/executions/:id/resume     # Resume execution
+POST   /api/executions/:id/stop       # Stop execution
+
+# Execution History
+GET    /api/robots/:id/executions     # List executions
+GET    /api/executions/:id            # Get execution details
+
+# Results
+GET    /api/robots/:id/results        # List all result files
+GET    /api/results/:id               # Get file info
+GET    /api/results/:id/download      # Download file
+GET    /api/results/:id/preview       # Preview file (if supported)
+```
+
+### 8.2 Polling (MVP)
+
+For the initial version, use polling instead of WebSocket:
+
+- **Interval**: 2 minutes (120 seconds)
+- **Endpoint**: `GET /api/robots` with status info
+- **Scope**: Refresh all station statuses
+
+```typescript
+// hooks/useRobots.ts
+const { data, refetch } = useQuery({
+  queryKey: ['robots'],
+  queryFn: fetchRobots,
+  refetchInterval: 120000, // 2 minutes
+});
+```
+
+**Future**: WebSocket for real-time updates (Phase 2)
+
+---
+
+## 9. Responsive Behavior
+
+### 9.1 Breakpoints
+
+| Breakpoint | Grid Columns | Card Size | Clock Size |
+|------------|--------------|-----------|------------|
+| ≥1920px (4K) | 8 | 200px | 72px |
+| ≥1440px | 6 | 180px | 56px |
+| ≥1024px | 4 | 160px | 48px |
+| ≥768px | 3 | 150px | 40px |
+| <768px | 2 | 140px | 32px |
+
+### 9.2 Fullscreen Mode
+
+- Hide browser chrome
+- Maximize grid area
+- Larger clock (centered, prominent)
+- Larger cards and fonts
+- Auto-hide header (show on mouse move to top)
+
+---
+
+## 10. Accessibility
+
+- Keyboard navigation for grid and modals
+- Focus indicators on all interactive elements
+- Screen reader labels for status indicators
+- Color + shape for status differentiation (not color alone)
+- Reduced motion option for animations
+- High contrast mode support
+
+---
+
+## 11. Future Considerations
+
+- 3D visualization mode (Three.js)
+- Sound effects for status changes (optional, user preference)
+- Multi-team view (switch between teams)
+- Mobile companion app
+- Dashboard widgets for embedding
+- Notification preferences per agent
